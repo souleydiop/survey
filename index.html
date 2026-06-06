@@ -622,22 +622,22 @@ async function generatePPT() {
       const imgRels = [];
       let ph1 = '', ph2 = '';
 
-      // Photos side by side: left half and right-center
-      // Each photo: width=4.4, height=2.9, top y=1.5
+      // Photos side by side inside border box
+      // Photo1: left quarter, Photo2: center, Comment: right quarter
       if (ecart.photos[0]) {
         const rId = await addImg(ecart.photos[0]);
         imgRels.push({ rId, ext: allMedia[rId].ext });
-        ph1 = imgShape(0.15, 1.45, 4.4, 5.4, rId);
+        ph1 = imgShape(0.2, 1.5, 4.3, 5.2, rId);
       } else {
-        ph1 = rect(0.15, 1.45, 4.4, 5.4, '#EEEEEE') + textBox(0.15, 1.45, 4.4, 5.4, 'Photo 1', 12, false, '#AAAAAA', 'center');
+        ph1 = rect(0.2, 1.5, 4.3, 5.2, '#EEEEEE') + textBox(0.2, 1.5, 4.3, 5.2, 'Photo 1', 12, false, '#AAAAAA', 'center');
       }
 
       if (ecart.photos[1]) {
         const rId = await addImg(ecart.photos[1]);
         imgRels.push({ rId, ext: allMedia[rId].ext });
-        ph2 = imgShape(4.7, 1.45, 4.4, 5.4, rId);
+        ph2 = imgShape(4.6, 1.5, 4.3, 5.2, rId);
       } else {
-        ph2 = rect(4.7, 1.45, 4.4, 5.4, '#EEEEEE') + textBox(4.7, 1.45, 4.4, 5.4, 'Photo 2', 12, false, '#AAAAAA', 'center');
+        ph2 = rect(4.6, 1.5, 4.3, 5.2, '#EEEEEE') + textBox(4.6, 1.5, 4.3, 5.2, 'Photo 2', 12, false, '#AAAAAA', 'center');
       }
 
       const shapes = [
@@ -664,7 +664,7 @@ async function generatePPT() {
       shapes.push(textBox(0, 0, 10, 0.42, '- Ecarts a corriger', 13, true, '#FFFFFF', 'center'));
 
       let xp = 0.28;
-      const hy = 0.6;
+      const hy = 0.65;
       cols.forEach((col, i) => {
         shapes.push(rect(xp, hy, colW[i], 0.34, '#F5A623'));
         shapes.push(textBox(xp, hy, colW[i], 0.34, col, 7, true, '#FFFFFF', 'center'));
@@ -686,9 +686,8 @@ async function generatePPT() {
         });
       });
 
-      shapes.push(rect(0, 7.1, 1.5, 0.32, '#CF0A2C'));
-      shapes.push(textBox(0, 7.1, 1.5, 0.32, 'HUAWEI', 8, true, '#FFFFFF', 'center'));
-      shapes.push(textBox(1.7, 7.15, 5.5, 0.25, 'Huawei Proprietary - Restricted Distribution', 6, false, '#AAAAAA', 'left'));
+      shapes.push(imgShape(0.15, 7.0, 1.8, 0.42, 'rLogo'));
+      shapes.push(textBox(2.1, 7.1, 5.5, 0.25, 'Huawei Proprietary - Restricted Distribution', 6, false, '#AAAAAA', 'left'));
 
       slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: [{rId:'rLogo', ext:'png'}], images: [{rId:'rLogo', ext:'png'}] });
     }
