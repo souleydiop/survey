@@ -7,33 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Site Visit Report</title>
-<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAD6ElEQVR4nO3dwXHbSBCGUcnHPbn2yBiciePdODYT14awB1bRFiRRJH9gZrr53k0nNorfEBDA4ryeTqeXJ/DPf38PfsWf338NfsUpvs0eYITx9cx60fGeIiCO0z+giZ8Ez/Ah1Dyg6W/h9AGO1jwgjtY5oEVW/yJjHKRtQEu9bUsNs6+2ATFGz4AWXPELjrSLngExTMOAll3ryw6WaBgQIwmISLeAFj9NLD7eA7oFxGCtAiqxvksMebtWATGegIj0CajQqaHQqF/qExBTCIhIk4DKnRTKDfyZJgExi4CIdAio6Omg6NgbHQJiIgERERCR8gGVvpIoPfxZ+YCYS0BEBEREQERqB9TgIrT6IdQOiOkERERARAREpHBA1S8/L0ofSOGAWIGAiAiIiICICIiIgIgIiIiAiFQNqPTNt/fqHk7VgFiEgIgIiIiAiAiIiICICIiIgIgIiIiAiAiIiICIvJ5Op9kzvFH3seIYP7//mj3CG3MCUskRprQ1KCDFTDEgqaMCUsyCjuhpz4BEU8heMe0QkG5KC0t6PCDdNPNYSXcHpJv27irpjoCk81RuzOjrgHTzzL7M6FpA0uHsSkYfByQd3vswow8CUg9XbDJ6E5B0uNElo99f51APt7vU8no6naTDw17//evH7BkozDcSiQiIiICICIiIgIgIiIiAiAiIiICICIiIgIgIiIiAiAiIiICICIiIgIgIiIiAiAiIiICICIiIgIgIiIiAiAiIiICICIiIgIgIiIiAiAiIiICICIiIgIgIiIiAiHxbbRdgavn9S/V+LZq7nD96vm3+hltcarHZCve5ttnKhYZ479btni5kxNndG879SUbPLNryckNJT2W3TXc3ZNTeUdt+byipmcfu4zwe0IWSSgvv/+0Q0IWSCtnrvvGeAf1JTAs64mHDUQFt6GmKAY+nBgW0oacjTHmaOSegK7R13WrPvJcL6Eb9OlutjBv5RiIRAREREBEBEREQEQERERARAREREBEBEREQEQERqRpQ0UePn6l7OFUDYhECIiIgIgIiIiAiAiIiICICIlI4oLo33zZKH0jhgFiBgIgIiIiAiAiISO2ASv//clb9EGoHxHQCIiIgIgIiUj6g0hehpYc/Kx8QcwmIiICIdAio6JVE0bE3OgTERAIi0iSgcqeDcgN/pklAzCIgIn0CKnRSKDTql/oExBQCItIqoBKnhhJD3q5VQIzXLaDF1/fi4z2gW0AM1jCgZVf5soMlGgbESD0DWnCtLzjSLnoGxDBtA1pqxS81zL7aBsQYnQNaZN0vMsZBOgfEAM0Dmr76pw9wtOYBvUx9C9vX8/IMAXGo/wG2vMxGE3b05AAAAABJRU5ErkJggg==">
-<script>
-// Inline manifest via blob URL
-const manifestData = {
-  "name": "Site Visit Report",
-  "short_name": "SiteVisit",
-  "description": "Application de rapport de visite de site Huawei",
-  "start_url": "./index.html",
-  "scope": "./",
-  "display": "standalone",
-  "background_color": "#1a1a1a",
-  "theme_color": "#cf0a2c",
-  "orientation": "portrait-primary",
-  "icons": [
-    {"src": "https://souleydiop.github.io/survey/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-    {"src": "https://souleydiop.github.io/survey/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
-    {"src": "https://souleydiop.github.io/survey/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-    {"src": "https://souleydiop.github.io/survey/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
-  ]
-};
-const blob = new Blob([JSON.stringify(manifestData)], {type: 'application/json'});
-const manifestURL = URL.createObjectURL(blob);
-const link = document.createElement('link');
-link.rel = 'manifest';
-link.href = manifestURL;
-document.head.appendChild(link);
-</script>
+<link rel="manifest" href="https://souleydiop.github.io/survey/manifest.json">
+<link rel="apple-touch-icon" href="https://souleydiop.github.io/survey/icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;900&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet">
 <style>
