@@ -587,20 +587,24 @@ async function generatePPT() {
       return rId;
     }
 
+    // Add Huawei logo to media
+    const logoB64raw = HUAWEI_LOGO_B64.split(',')[1];
+    const logoBytes = Uint8Array.from(atob(logoB64raw), c => c.charCodeAt(0));
+    allMedia['rLogo'] = { data: logoBytes, ext: 'png' };
+
     // ============ SLIDE 1: Page de garde ============
     {
       const shapes = [
         nvGrpSpPr(),
         rect(0, 0, 3.5, 7.5, '#FFFFFF'),
         rect(3.5, 0, 6.5, 7.5, '#C8D4E0'),
-        rect(0.3, 5.8, 1.5, 0.35, '#CF0A2C'),
-        textBox(0.3, 5.8, 1.5, 0.35, 'HUAWEI', 11, true, '#FFFFFF', 'center'),
+        imgShape(0.2, 5.65, 1.7, 0.48, "rLogo"),
         textBox(4.0, 1.8, 5.2, 0.6, 'Rapport de visite de Site :', 20, true, '#1A1A1A', 'left'),
         textBox(4.0, 2.5, 5.2, 0.8, siteName, 28, true, '#1A1A1A', 'left'),
         textBox(0.05, 0.2, 0.28, 3.5, 'Security Level:', 7, false, '#999999', 'center', -90),
         textBox(0.05, 4.5, 0.28, 2.8, 'Huawei Proprietary - Restricted Distribution', 6, false, '#BBBBBB', 'center', -90),
       ];
-      slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: [], images: [] });
+      slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: [{rId:'rLogo', ext:'png'}], images: [{rId:'rLogo', ext:'png'}] });
     }
 
     // ============ SLIDES Écarts ============
@@ -633,11 +637,10 @@ async function generatePPT() {
         textBox(5.3, 0.65, 4.0, 0.38, `2- Equipe visiteur: ${siteLeader}`, 10, true, '#1A1A1A', 'left'),
         ph1, ph2,
         ecart.commentaire ? textBox(5.3, 4.0, 3.9, 1.8, ecart.commentaire, 12, true, '#1A1A1A', 'center') : '',
-        rect(0, 7.1, 1.5, 0.32, '#CF0A2C'),
-        textBox(0, 7.1, 1.5, 0.32, 'HUAWEI', 8, true, '#FFFFFF', 'center'),
+        imgShape(0.05, 7.0, 1.6, 0.42, "rLogo"),
         textBox(1.7, 7.15, 5.5, 0.25, 'Huawei Proprietary - Restricted Distribution', 6, false, '#AAAAAA', 'left'),
       ];
-      slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: imgRels, images: imgRels });
+      const ecartImgRels = [...imgRels, {rId:'rLogo', ext:'png'}]; slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: ecartImgRels, images: ecartImgRels });
     }
 
     // ============ SLIDE Récap ============
@@ -675,8 +678,9 @@ async function generatePPT() {
       shapes.push(textBox(0, 7.1, 1.5, 0.32, 'HUAWEI', 8, true, '#FFFFFF', 'center'));
       shapes.push(textBox(1.7, 7.15, 5.5, 0.25, 'Huawei Proprietary - Restricted Distribution', 6, false, '#AAAAAA', 'left'));
 
-      slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: [], images: [] });
+      slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: [{rId:'rLogo', ext:'png'}], images: [{rId:'rLogo', ext:'png'}] });
     }
+
 
     // ============ BUILD ZIP ============
     // [Content_Types]
