@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#cf0a2c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Site Visit Report</title>
+<link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundled.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;900&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --huawei-red: #cf0a2c;
+    --huawei-dark: #1a1a1a;
+    --orange: #f5a623;
+    --orange-dark: #e08a00;
+    --bg: #f0f2f5;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --radius: 12px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Barlow', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+  /* NAV */
+  .nav { background: var(--huawei-dark); color: white; padding: 0; display: flex; flex-direction: column; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  .nav-top { display: flex; align-items: center; padding: 12px 16px; gap: 12px; }
+  .nav-logo { display: flex; align-items: center; gap: 8px; }
+  .nav-logo svg { width: 32px; height: 32px; }
+  .nav-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+  .nav-tabs { display: flex; border-top: 1px solid rgba(255,255,255,0.1); }
+  .nav-tab { flex: 1; padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.5); cursor: pointer; border: none; background: none; transition: all 0.2s; letter-spacing: 0.3px; text-transform: uppercase; }
+  .nav-tab.active { color: white; border-bottom: 2px solid var(--huawei-red); }
+
+  /* SCREENS */
+  .screen { display: none; padding: 16px; min-height: calc(100vh - 100px); }
+  .screen.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+  .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid var(--orange); }
+  .card-header-icon { width: 28px; height: 28px; background: var(--orange); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; }
+  .card-title { font-family: 'Barlow Condensed', sans-serif; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* FORM */
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 5px; }
+  .field input, .field textarea, .field select {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-family: 'Barlow', sans-serif; font-size: 14px;
+    background: #fafafa; transition: border-color 0.2s; outline: none;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--orange); background: white; }
+  .field textarea { resize: none; min-height: 70px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* BUTTONS */
+  .btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; border-radius: 8px; font-family: 'Barlow', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; border: none; transition: all 0.15s; letter-spacing: 0.3px; }
+  .btn-primary { background: var(--huawei-red); color: white; }
+  .btn-primary:active { background: #a8081e; transform: scale(0.98); }
+  .btn-orange { background: var(--orange); color: white; }
+  .btn-orange:active { background: var(--orange-dark); transform: scale(0.98); }
+  .btn-ghost { background: transparent; color: var(--text-muted); border: 1.5px solid var(--border); }
+  .btn-danger { background: #fee2e2; color: #dc2626; border: none; }
+  .btn-full { width: 100%; }
+  .btn-sm { padding: 8px 14px; font-size: 12px; }
+
+  /* ÉCART SLIDE */
+  .ecart-card { background: white; border-radius: var(--radius); border: 1.5px solid var(--border); margin-bottom: 12px; overflow: hidden; }
+  .ecart-header { background: var(--orange); color: white; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .ecart-num { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 15px; letter-spacing: 1px; }
+  .ecart-body { padding: 14px; }
+  .photos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .photo-slot { border: 2px dashed var(--border); border-radius: 8px; aspect-ratio: 4/3; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; background: #f9fafb; position: relative; overflow: hidden; transition: border-color 0.2s; }
+  .photo-slot:active { border-color: var(--orange); }
+  .photo-slot img { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; }
+  .photo-slot .photo-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.75)); padding: 6px; color: white; font-size: 9px; line-height: 1.3; }
+  .photo-slot .photo-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; color: var(--text-muted); }
+  .photo-slot .photo-placeholder span { font-size: 11px; font-weight: 600; }
+  .photo-slot input[type=file] { position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; top: 0; left: 0; }
+  .geo-badge { display: inline-flex; align-items: center; gap: 4px; background: #ecfdf5; color: #059669; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px; margin-bottom: 8px; }
+  .geo-badge.waiting { background: #fef3c7; color: #d97706; }
+
+  /* TABLE ÉCARTS */
+  .table-container { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 600px; }
+  th { background: var(--orange); color: white; padding: 8px 10px; text-align: left; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  td input { border: none; background: transparent; width: 100%; font-family: 'Barlow', sans-serif; font-size: 12px; outline: none; }
+  td input:focus { background: #fff8ed; border-radius: 4px; }
+  tr:nth-child(even) td { background: #fafafa; }
+  .td-num { font-weight: 700; color: var(--orange); width: 30px; }
+  .td-action { width: 36px; }
+
+  /* MAP */
+  #map { width: 100%; height: 60vh; border-radius: var(--radius); overflow: hidden; }
+  .map-controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .site-list { max-height: 35vh; overflow-y: auto; }
+  .site-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; }
+  .site-item:active { background: #fff8ed; }
+  .site-checkbox { width: 18px; height: 18px; accent-color: var(--orange); }
+  .site-info { flex: 1; }
+  .site-name { font-weight: 700; font-size: 13px; }
+  .site-coords { font-size: 11px; color: var(--text-muted); }
+  .site-dist { font-size: 11px; font-weight: 600; color: var(--orange); }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1a1a1a; color: white; padding: 10px 20px; border-radius: 24px; font-size: 13px; font-weight: 600; z-index: 999; transition: transform 0.3s; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* GENERATE BTN */
+  .generate-section { background: linear-gradient(135deg, var(--huawei-dark), #2d2d2d); border-radius: var(--radius); padding: 20px; text-align: center; margin-top: 8px; }
+  .generate-section p { color: rgba(255,255,255,0.7); font-size: 13px; margin-bottom: 14px; }
+  .btn-generate { background: var(--huawei-red); color: white; font-size: 16px; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; letter-spacing: 1px; padding: 14px 32px; border-radius: 10px; border: none; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 10px; }
+  .btn-generate:active { transform: scale(0.97); }
+
+  /* SPINNER */
+  .spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* SECTION TITLE */
+  .section-title { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; color: var(--huawei-dark); display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; width: 4px; height: 22px; background: var(--huawei-red); border-radius: 2px; }
+
+  /* ADD ECART BTN */
+  .add-ecart-btn { border: 2px dashed var(--orange); color: var(--orange); background: #fff8ed; border-radius: var(--radius); padding: 14px; width: 100%; text-align: center; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.15s; margin-bottom: 14px; }
+  .add-ecart-btn:active { background: #fff0d0; }
+
+  .leaflet-container { font-family: 'Barlow', sans-serif; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-top">
+    <div class="nav-logo">
+      <!-- Huawei SVG logo -->
+      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 4C20 4 14 10 14 18C14 22 16.5 25.5 20 27C23.5 25.5 26 22 26 18C26 10 20 4 20 4Z" fill="#cf0a2c"/>
+        <path d="M4 20C4 20 10 14 18 14C22 14 25.5 16.5 27 20C25.5 23.5 22 26 18 26C10 26 4 20 4 20Z" fill="#cf0a2c" opacity="0.7"/>
+        <path d="M20 36C20 36 26 30 26 22C26 18 23.5 14.5 20 13C16.5 14.5 14 18 14 22C14 30 20 36 20 36Z" fill="#cf0a2c" opacity="0.5"/>
+        <path d="M36 20C36 20 30 26 22 26C18 26 14.5 23.5 13 20C14.5 16.5 18 14 22 14C30 14 36 20 36 20Z" fill="#cf0a2c" opacity="0.85"/>
+      </svg>
+    </div>
+    <div class="nav-title">Site Visit Report</div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showScreen('rapport')">📋 Rapport</button>
+    <button class="nav-tab" onclick="showScreen('sites')">🗺️ Sites & Itinéraire</button>
+  </div>
+</div>
+
+<!-- RAPPORT SCREEN -->
+<div id="screen-rapport" class="screen active">
+
+  <div class="section-title">Informations Site</div>
+
+  <div class="card">
+    <div class="row2">
+      <div class="field">
+        <label>Nom du Site</label>
+        <input type="text" id="site-name" placeholder="ex: POPENGUINE04">
+      </div>
+      <div class="field">
+        <label>Région</label>
+        <input type="text" id="site-region" placeholder="ex: Thiès">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label>SBC</label>
+        <input type="text" id="site-sbc" placeholder="ex: Mbour">
+      </div>
+      <div class="field">
+        <label>Date de visite</label>
+        <input type="date" id="site-date">
+      </div>
+    </div>
+    <div class="field">
+      <label>Chef d'équipe (Visit Leader)</label>
+      <input type="text" id="site-leader" placeholder="ex: Souleymane DIOP">
+    </div>
+  </div>
+
+  <div class="section-title">Écarts relevés</div>
+
+  <div id="ecarts-container"></div>
+
+  <button class="add-ecart-btn" onclick="addEcart()">+ Ajouter un écart</button>
+
+  <div class="section-title">Tableau récapitulatif</div>
+
+  <div class="card">
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Site name</th>
+            <th>Region</th>
+            <th>SBC</th>
+            <th>Visit leader</th>
+            <th>Date of visit</th>
+            <th>Point d'action</th>
+            <th>Porteur</th>
+            <th>Deadline</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="recap-tbody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;">
+      <button class="btn btn-ghost btn-sm" onclick="addRecapRow()">+ Ligne</button>
+    </div>
+  </div>
+
+  <div class="generate-section">
+    <p>Générer le rapport PowerPoint complet</p>
+    <button class="btn-generate" onclick="generatePPT()" id="btn-gen">
+      <span>⬇ Générer PPT</span>
+    </button>
+  </div>
+
+</div>
+
+<!-- SITES SCREEN -->
+<div id="screen-sites" class="screen">
+
+  <div class="section-title">Charger les Sites</div>
+
+  <div class="card">
+    <div class="field">
+      <label>Fichier KMZ / KML</label>
+      <input type="file" id="kmz-input" accept=".kmz,.kml" onchange="loadKMZ(this)">
+    </div>
+    <div id="gps-status" class="geo-badge waiting" style="margin-top:8px;">
+      📍 Localisation en attente...
+    </div>
+  </div>
+
+  <div class="map-controls">
+    <button class="btn btn-orange btn-sm" onclick="buildRoute()">🧭 Itinéraire sélection</button>
+    <button class="btn btn-ghost btn-sm" onclick="clearSelection()">✕ Vider sélection</button>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="section-title" style="margin-top:16px;">Liste des sites</div>
+  <div class="card" style="padding:0;">
+    <div class="site-list" id="site-list">
+      <div style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px;">
+        Chargez un fichier KMZ pour voir les sites
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Leaflet CSS + JS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script>
+// ============ STATE ============
+let ecarts = [];
+let ecartCounter = 0;
+let recapRows = [];
+let userLocation = null;
+let map = null;
+let markers = [];
+let sites = [];
+let selectedSites = new Set();
+let routeLayer = null;
+
+// ============ NAV ============
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'sites' && !map) initMap();
+}
+
+// ============ TOAST ============
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ============ GPS ============
+function getGPS() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  });
+}
+
+// ============ ÉCARTS ============
+function addEcart() {
+  ecartCounter++;
+  const id = 'ecart-' + Date.now();
+  const ecart = { id, num: ecartCounter, photos: [null, null], gps: null, commentaire: '', gpsLabel: '' };
+  ecarts.push(ecart);
+  renderEcart(ecart);
+  addRecapRow(ecartCounter);
+  getGPS().then(gps => {
+    if (gps) {
+      ecart.gps = gps;
+      const badge = document.getElementById('geo-' + id);
+      if (badge) { badge.textContent = `📍 ${gps.lat.toFixed(5)}, ${gps.lon.toFixed(5)}`; badge.className = 'geo-badge'; }
+    }
+  });
+}
+
+function renderEcart(ecart) {
+  const container = document.getElementById('ecarts-container');
+  const div = document.createElement('div');
+  div.className = 'ecart-card';
+  div.id = ecart.id;
+  div.innerHTML = `
+    <div class="ecart-header">
+      <span class="ecart-num">ÉCART #${ecart.num}</span>
+      <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:12px;" onclick="removeEcart('${ecart.id}')">✕ Supprimer</button>
+    </div>
+    <div class="ecart-body">
+      <div id="geo-${ecart.id}" class="geo-badge waiting">⏳ GPS en cours...</div>
+      <div class="photos-grid">
+        ${[0,1].map(i => `
+          <div class="photo-slot" id="slot-${ecart.id}-${i}">
+            <div class="photo-placeholder">
+              <span style="font-size:24px;">📷</span>
+              <span>Photo ${i+1}</span>
+            </div>
+            <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(event,'${ecart.id}',${i})">
+          </div>
+        `).join('')}
+      </div>
+      <div class="field">
+        <label>Commentaire / Écart observé</label>
+        <textarea placeholder="Décrire l'écart observé..." oninput="updateEcartComment('${ecart.id}',this.value)"></textarea>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function removeEcart(id) {
+  ecarts = ecarts.filter(e => e.id !== id);
+  document.getElementById(id)?.remove();
+  toast('Écart supprimé');
+}
+
+function updateEcartComment(id, val) {
+  const e = ecarts.find(x => x.id === id);
+  if (e) e.commentaire = val;
+}
+
+async function handlePhoto(event, ecartId, photoIdx) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const ecart = ecarts.find(e => e.id === ecartId);
+  if (!ecart) return;
+
+  const gps = ecart.gps || await getGPS();
+  if (gps && !ecart.gps) ecart.gps = gps;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const imgData = e.target.result;
+    // Add watermark
+    const watermarked = await addWatermark(imgData, ecart.gps, document.getElementById('site-name').value || 'SITE');
+    ecart.photos[photoIdx] = watermarked;
+
+    const slot = document.getElementById(`slot-${ecartId}-${photoIdx}`);
+    slot.querySelector('.photo-placeholder').style.display = 'none';
+    let img = slot.querySelector('img');
+    if (!img) { img = document.createElement('img'); slot.insertBefore(img, slot.querySelector('input')); }
+    img.src = watermarked;
+
+    // GPS overlay
+    if (ecart.gps) {
+      let ov = slot.querySelector('.photo-overlay');
+      if (!ov) { ov = document.createElement('div'); ov.className = 'photo-overlay'; slot.appendChild(ov); }
+      ov.innerHTML = `Lat: ${ecart.gps.lat.toFixed(5)}<br>Lon: ${ecart.gps.lon.toFixed(5)}<br>${document.getElementById('site-name').value || ''}`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function addWatermark(imgSrc, gps, siteName) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      // Watermark background
+      const now = new Date();
+      const dateStr = now.toLocaleString('fr-FR');
+      const lines = [
+        gps ? `Latitude: ${gps.lat.toFixed(6)}` : 'Latitude: --',
+        gps ? `Longitude: ${gps.lon.toFixed(6)}` : 'Longitude: --',
+        `Temps: ${dateStr}`,
+        `Note: ${siteName}`
+      ];
+
+      const fontSize = Math.max(12, img.width * 0.025);
+      ctx.font = `bold ${fontSize}px Arial`;
+      const padding = fontSize * 0.5;
+      const lineH = fontSize * 1.4;
+      const bgH = lines.length * lineH + padding * 2;
+      const bgW = img.width * 0.55;
+
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, img.height - bgH, bgW, bgH);
+
+      ctx.fillStyle = '#ff4444';
+      ctx.font = `bold ${fontSize * 0.85}px Arial`;
+      lines.forEach((line, i) => {
+        ctx.fillText(line, padding, img.height - bgH + padding + (i + 0.85) * lineH);
+      });
+
+      // "Powered by NoteCam" style tag
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = `${fontSize * 0.7}px Arial`;
+      ctx.fillText('Powered by SiteVisit', padding, img.height - bgH + padding + 0.3 * lineH);
+
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.src = imgSrc;
+  });
+}
+
+// ============ RECAP TABLE ============
+function addRecapRow(num) {
+  const tbody = document.getElementById('recap-tbody');
+  const n = num || (tbody.rows.length + 1);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="td-num">${n}</td>
+    <td><input type="text" placeholder="Site name" id="rt-site-${n}"></td>
+    <td><input type="text" placeholder="Region" id="rt-region-${n}"></td>
+    <td><input type="text" placeholder="SBC" id="rt-sbc-${n}"></td>
+    <td><input type="text" placeholder="Visit leader" id="rt-leader-${n}"></td>
+    <td><input type="text" placeholder="Date" id="rt-date-${n}"></td>
+    <td><input type="text" placeholder="Point d'action" id="rt-action-${n}"></td>
+    <td><input type="text" placeholder="Porteur"></td>
+    <td><input type="text" placeholder="Deadline"></td>
+    <td class="td-action"><button onclick="this.closest('tr').remove()" style="border:none;background:none;color:#dc2626;cursor:pointer;font-size:16px;">×</button></td>
+  `;
+  tbody.appendChild(tr);
+  // Auto-fill from header
+  const siteName = document.getElementById('site-name').value;
+  const region = document.getElementById('site-region').value;
+  const sbc = document.getElementById('site-sbc').value;
+  const leader = document.getElementById('site-leader').value;
+  const date = document.getElementById('site-date').value;
+  if (siteName) tr.querySelector(`#rt-site-${n}`).value = siteName;
+  if (region) tr.querySelector(`#rt-region-${n}`).value = region;
+  if (sbc) tr.querySelector(`#rt-sbc-${n}`).value = sbc;
+  if (leader) tr.querySelector(`#rt-leader-${n}`).value = leader;
+  if (date) tr.querySelector(`#rt-date-${n}`).value = date;
+}
+
+// ============ GENERATE PPT ============
+async function generatePPT() {
+  const btn = document.getElementById('btn-gen');
+  btn.innerHTML = '<div class="spinner"></div><span>Génération...</span>';
+  btn.disabled = true;
+
+  try {
+    const siteName = document.getElementById('site-name').value || 'SITE';
+    const siteDate = document.getElementById('site-date').value || new Date().toLocaleDateString('fr-FR');
+    const siteLeader = document.getElementById('site-leader').value || '';
+    const siteRegion = document.getElementById('site-region').value || '';
+    const siteSBC = document.getElementById('site-sbc').value || '';
+
+    const pptx = new PptxGenJS();
+    pptx.layout = 'LAYOUT_WIDE';
+
+    // ---- SLIDE 1: Page de garde ----
+    const slide1 = pptx.addSlide();
+    slide1.background = { color: 'FFFFFF' };
+
+    // Left white section
+    slide1.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 3.5, h: 7.5, fill: { color: 'FFFFFF' } });
+
+    // Right section with background color
+    slide1.addShape(pptx.ShapeType.rect, { x: 3.5, y: 0, w: 6.5, h: 7.5, fill: { color: 'D0D8E4' } });
+
+    // Huawei logo area
+    slide1.addShape(pptx.ShapeType.rect, { x: 0.3, y: 6.0, w: 1.8, h: 0.4, fill: { color: 'CF0A2C' } });
+    slide1.addText('HUAWEI', { x: 0.3, y: 6.0, w: 1.8, h: 0.4, fontSize: 14, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
+
+    // Vertical title on right
+    slide1.addText('Rapport de visite de Site :', {
+      x: 4.0, y: 2.0, w: 5.5, h: 0.7,
+      fontSize: 24, bold: true, color: '1A1A1A', align: 'left'
+    });
+    slide1.addText(siteName, {
+      x: 4.0, y: 2.8, w: 5.5, h: 0.8,
+      fontSize: 32, bold: true, color: '1A1A1A', align: 'left'
+    });
+
+    // Security Level
+    slide1.addText('Security Level:', {
+      x: 0.1, y: 0.2, w: 0.3, h: 4,
+      fontSize: 8, color: '888888', rotate: 270
+    });
+
+    // Huawei Proprietary
+    slide1.addText('Huawei Proprietary - Restricted Distribution', {
+      x: 0.1, y: 5.5, w: 0.3, h: 2,
+      fontSize: 7, color: 'AAAAAA', rotate: 270
+    });
+
+    // ---- SLIDES 2+: Écarts ----
+    for (const ecart of ecarts) {
+      const slide = pptx.addSlide();
+      slide.background = { color: 'FFFFFF' };
+
+      // Orange right banner
+      slide.addShape(pptx.ShapeType.rect, { x: 9.5, y: 0, w: 0.5, h: 7.5, fill: { color: 'F5A623' } });
+      slide.addText('Detaille generale', {
+        x: 9.5, y: 0, w: 0.5, h: 7.5,
+        fontSize: 10, bold: true, color: 'FFFFFF',
+        align: 'center', valign: 'middle', rotate: 270
+      });
+
+      // Page number
+      slide.addText('3', { x: 0.2, y: 0.2, w: 0.4, h: 0.3, fontSize: 10, color: '888888' });
+
+      // Info block
+      slide.addText(`1- Date de visite: ${siteDate}`, { x: 5.5, y: 0.3, w: 3.8, h: 0.35, fontSize: 11, bold: true, color: '1A1A1A' });
+      slide.addText(`2- Equipe visiteur: ${siteLeader}`, { x: 5.5, y: 0.7, w: 3.8, h: 0.35, fontSize: 11, bold: true, color: '1A1A1A' });
+
+      // Photos
+      const gpsLat = ecart.gps ? ecart.gps.lat.toFixed(6) : '#na';
+      const gpsLon = ecart.gps ? ecart.gps.lon.toFixed(6) : '#na';
+
+      const photoW = 4.5;
+      const photoH = 2.8;
+
+      if (ecart.photos[0]) {
+        slide.addImage({ data: ecart.photos[0], x: 0.3, y: 1.2, w: photoW, h: photoH });
+      } else {
+        slide.addShape(pptx.ShapeType.rect, { x: 0.3, y: 1.2, w: photoW, h: photoH, fill: { color: 'EEEEEE' } });
+        slide.addText('Photo 1', { x: 0.3, y: 1.2, w: photoW, h: photoH, fontSize: 12, color: 'AAAAAA', align: 'center', valign: 'middle' });
+      }
+
+      if (ecart.photos[1]) {
+        slide.addImage({ data: ecart.photos[1], x: 0.3, y: 4.2, w: photoW, h: photoH });
+      } else {
+        slide.addShape(pptx.ShapeType.rect, { x: 0.3, y: 4.2, w: photoW, h: photoH, fill: { color: 'EEEEEE' } });
+        slide.addText('Photo 2', { x: 0.3, y: 4.2, w: photoW, h: photoH, fontSize: 12, color: 'AAAAAA', align: 'center', valign: 'middle' });
+      }
+
+      // Comment
+      if (ecart.commentaire) {
+        slide.addText(ecart.commentaire, {
+          x: 5.5, y: 4.5, w: 3.8, h: 1.5,
+          fontSize: 13, bold: true, color: '1A1A1A', align: 'center', valign: 'middle'
+        });
+      }
+
+      // Huawei footer
+      slide.addShape(pptx.ShapeType.rect, { x: 0, y: 7.1, w: 1.5, h: 0.3, fill: { color: 'CF0A2C' } });
+      slide.addText('HUAWEI', { x: 0, y: 7.1, w: 1.5, h: 0.3, fontSize: 8, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
+      slide.addText('Huawei Proprietary - Restricted Distribution', { x: 1.8, y: 7.15, w: 5, h: 0.25, fontSize: 7, color: 'AAAAAA' });
+    }
+
+    // ---- SLIDE RECAP: Écarts à corriger ----
+    const slideRecap = pptx.addSlide();
+    slideRecap.background = { color: 'FFFFFF' };
+
+    // Orange right banner
+    slideRecap.addShape(pptx.ShapeType.rect, { x: 9.5, y: 0, w: 0.5, h: 7.5, fill: { color: 'F5A623' } });
+    slideRecap.addText('- Ecarts a corriger', {
+      x: 9.5, y: 0, w: 0.5, h: 7.5,
+      fontSize: 10, bold: true, color: 'FFFFFF',
+      align: 'center', valign: 'middle', rotate: 270
+    });
+
+    // Table headers
+    const cols = ['#', 'Site name', 'Region', 'SBC', 'Visit leader', 'Date of visit', "Point d'action", 'Porteur', 'Deadline'];
+    const colW = [0.3, 1.2, 0.9, 0.8, 1.2, 0.9, 1.5, 0.9, 0.8];
+    let xPos = 0.3;
+    const headerY = 0.5;
+
+    cols.forEach((col, i) => {
+      slideRecap.addShape(pptx.ShapeType.rect, { x: xPos, y: headerY, w: colW[i], h: 0.35, fill: { color: 'F5A623' } });
+      slideRecap.addText(col, { x: xPos, y: headerY, w: colW[i], h: 0.35, fontSize: 7, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
+      xPos += colW[i];
+    });
+
+    // Table rows from recap tbody
+    const rows = document.getElementById('recap-tbody').querySelectorAll('tr');
+    rows.forEach((row, ri) => {
+      const cells = row.querySelectorAll('td');
+      let xp = 0.3;
+      const rowY = headerY + 0.35 + ri * 0.32;
+      const bgColor = ri % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
+      cols.forEach((_, ci) => {
+        const cell = cells[ci];
+        const val = cell ? (cell.querySelector('input')?.value || cell.textContent.trim() || '#na') : '#na';
+        slideRecap.addShape(pptx.ShapeType.rect, { x: xp, y: rowY, w: colW[ci], h: 0.30, fill: { color: bgColor }, line: { color: 'E5E7EB', width: 0.5 } });
+        slideRecap.addText(val, { x: xp, y: rowY, w: colW[ci], h: 0.30, fontSize: 7, color: '1A1A1A', align: 'center', valign: 'middle' });
+        xp += colW[ci];
+      });
+    });
+
+    // Huawei footer
+    slideRecap.addShape(pptx.ShapeType.rect, { x: 0, y: 7.1, w: 1.5, h: 0.3, fill: { color: 'CF0A2C' } });
+    slideRecap.addText('HUAWEI', { x: 0, y: 7.1, w: 1.5, h: 0.3, fontSize: 8, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
+    slideRecap.addText('Huawei Proprietary - Restricted Distribution', { x: 1.8, y: 7.15, w: 5, h: 0.25, fontSize: 7, color: 'AAAAAA' });
+
+    await pptx.writeFile({ fileName: `Visite_${siteName}_${siteDate.replace(/\//g,'-')}.pptx` });
+    toast('✅ PPT généré avec succès !');
+  } catch(err) {
+    console.error(err);
+    toast('❌ Erreur lors de la génération');
+  }
+
+  btn.innerHTML = '<span>⬇ Générer PPT</span>';
+  btn.disabled = false;
+}
+
+// ============ MAP & KMZ ============
+function initMap() {
+  map = L.map('map').setView([14.5, -14.5], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  // Get user location
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      userLocation = [pos.coords.latitude, pos.coords.longitude];
+      const userMarker = L.circleMarker(userLocation, { radius: 10, fillColor: '#cf0a2c', color: 'white', weight: 2, fillOpacity: 1 })
+        .addTo(map)
+        .bindPopup('📍 Votre position');
+      map.setView(userLocation, 10);
+      document.getElementById('gps-status').textContent = `📍 ${userLocation[0].toFixed(5)}, ${userLocation[1].toFixed(5)}`;
+      document.getElementById('gps-status').className = 'geo-badge';
+    }, () => {
+      document.getElementById('gps-status').textContent = '❌ GPS non disponible';
+    });
+  }
+}
+
+async function loadKMZ(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  let kmlText = '';
+
+  if (file.name.endsWith('.kmz')) {
+    const zip = await JSZip.loadAsync(file);
+    const kmlFile = Object.values(zip.files).find(f => f.name.endsWith('.kml'));
+    if (!kmlFile) { toast('❌ Aucun fichier KML dans le KMZ'); return; }
+    kmlText = await kmlFile.async('text');
+  } else {
+    kmlText = await file.text();
+  }
+
+  parseKML(kmlText);
+  toast(`✅ ${sites.length} sites chargés`);
+}
+
+function parseKML(kmlText) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(kmlText, 'text/xml');
+  const placemarks = doc.querySelectorAll('Placemark');
+  sites = [];
+
+  // Clear existing markers
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+  document.getElementById('site-list').innerHTML = '';
+
+  placemarks.forEach((pm, idx) => {
+    const name = pm.querySelector('name')?.textContent || `Site ${idx+1}`;
+    const coordsEl = pm.querySelector('Point coordinates') || pm.querySelector('coordinates');
+    if (!coordsEl) return;
+
+    const coords = coordsEl.textContent.trim().split(',');
+    if (coords.length < 2) return;
+    const lon = parseFloat(coords[0]);
+    const lat = parseFloat(coords[1]);
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    const site = { name, lat, lon, id: idx };
+    sites.push(site);
+
+    // Marker
+    const marker = L.circleMarker([lat, lon], {
+      radius: 8, fillColor: '#f5a623', color: 'white', weight: 2, fillOpacity: 0.9
+    }).addTo(map).bindPopup(`<b>${name}</b><br>${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+    marker.on('click', () => toggleSite(site.id));
+    markers.push({ marker, siteId: idx });
+
+    // List item
+    const dist = userLocation ? calcDist(userLocation[0], userLocation[1], lat, lon) : null;
+    const item = document.createElement('div');
+    item.className = 'site-item';
+    item.id = `site-item-${idx}`;
+    item.innerHTML = `
+      <input type="checkbox" class="site-checkbox" id="chk-${idx}" onchange="toggleSite(${idx})">
+      <div class="site-info">
+        <div class="site-name">${name}</div>
+        <div class="site-coords">${lat.toFixed(5)}, ${lon.toFixed(5)}</div>
+      </div>
+      ${dist ? `<div class="site-dist">${dist.toFixed(1)} km</div>` : ''}
+    `;
+    item.querySelector('.site-info').onclick = () => map.setView([lat, lon], 14);
+    document.getElementById('site-list').appendChild(item);
+  });
+
+  if (sites.length > 0) {
+    const bounds = L.latLngBounds(sites.map(s => [s.lat, s.lon]));
+    map.fitBounds(bounds, { padding: [30, 30] });
+  }
+}
+
+function toggleSite(id) {
+  const chk = document.getElementById(`chk-${id}`);
+  if (selectedSites.has(id)) {
+    selectedSites.delete(id);
+    if (chk) chk.checked = false;
+    // Reset marker color
+    const m = markers.find(m => m.siteId === id);
+    if (m) m.marker.setStyle({ fillColor: '#f5a623' });
+  } else {
+    selectedSites.add(id);
+    if (chk) chk.checked = true;
+    const m = markers.find(m => m.siteId === id);
+    if (m) m.marker.setStyle({ fillColor: '#cf0a2c' });
+  }
+}
+
+function clearSelection() {
+  selectedSites.forEach(id => {
+    document.getElementById(`chk-${id}`).checked = false;
+    const m = markers.find(m => m.siteId === id);
+    if (m) m.marker.setStyle({ fillColor: '#f5a623' });
+  });
+  selectedSites.clear();
+  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+  toast('Sélection vidée');
+}
+
+function buildRoute() {
+  if (selectedSites.size === 0) { toast('Sélectionnez au moins un site'); return; }
+  if (routeLayer) map.removeLayer(routeLayer);
+
+  const selected = [...selectedSites].map(id => sites[id]).filter(Boolean);
+  let points = [];
+  if (userLocation) points.push(L.latLng(userLocation[0], userLocation[1]));
+  selected.forEach(s => points.push(L.latLng(s.lat, s.lon)));
+
+  routeLayer = L.polyline(points, { color: '#cf0a2c', weight: 3, dashArray: '8,5' }).addTo(map);
+  map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+  toast(`Itinéraire: ${selected.length} site(s) sélectionné(s)`);
+}
+
+function calcDist(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Init: set today's date
+document.getElementById('site-date').value = new Date().toISOString().split('T')[0];
+// Add first ecart by default
+addEcart();
+</script>
+
+</body>
+</html>
