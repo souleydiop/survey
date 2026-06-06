@@ -35,7 +35,6 @@ link.href = manifestURL;
 document.head.appendChild(link);
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundled.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;900&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -506,163 +505,300 @@ function addRecapRow(num) {
   if (date) tr.querySelector(`#rt-date-${n}`).value = date;
 }
 
-// ============ GENERATE PPT ============
+// ============ NATIVE PPTX BUILDER ============
+// EMU = English Metric Units. 1 inch = 914400 EMU. 1 cm = 360000 EMU
+const EMU = 914400;
+function in2emu(v) { return Math.round(v * EMU); }
+function hex(c) { return c.replace('#',''); }
+
+function xmlEscape(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function spTree(...shapes) { return `<p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>${shapes.join('')}</p:spTree>`; }
+
+let _spId = 10;
+function nextId() { return ++_spId; }
+
+function rect(x, y, w, h, fillHex, lineHex) {
+  const id = nextId();
+  const line = lineHex ? `<a:ln><a:solidFill><a:srgbClr val="${hex(lineHex)}"/></a:solidFill></a:ln>` : '<a:ln><a:noFill/></a:ln>';
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="r${id}"/><p:cNvSpPr><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr>
+<p:spPr><a:xfrm><a:off x="${in2emu(x)}" y="${in2emu(y)}"/><a:ext cx="${in2emu(w)}" cy="${in2emu(h)}"/></a:xfrm>
+<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+<a:solidFill><a:srgbClr val="${hex(fillHex)}"/></a:solidFill>${line}</p:spPr>
+<p:txBody><a:bodyPr/><a:lstStyle/><a:p/></p:txBody></p:sp>`;
+}
+
+function textBox(x, y, w, h, text, fontSize, bold, colorHex, align, rotate) {
+  const id = nextId();
+  const algn = align === 'center' ? 'ctr' : align === 'right' ? 'r' : 'l';
+  const bld = bold ? '<a:b/>' : '';
+  const rot = rotate ? `rot="${rotate * 60000}"` : '';
+  return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="t${id}"/><p:cNvSpPr txBox="1"><a:spLocks noGrp="1"/></p:cNvSpPr><p:nvPr/></p:nvSpPr>
+<p:spPr><a:xfrm ${rot}><a:off x="${in2emu(x)}" y="${in2emu(y)}"/><a:ext cx="${in2emu(w)}" cy="${in2emu(h)}"/></a:xfrm>
+<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>
+<p:txBody><a:bodyPr wrap="square" anchor="ctr"/><a:lstStyle/>
+<a:p><a:pPr algn="${algn}"/><a:r><a:rPr lang="fr-FR" sz="${fontSize*100}" ${bld} dirty="0"><a:solidFill><a:srgbClr val="${hex(colorHex)}"/></a:solidFill></a:rPr>
+<a:t>${xmlEscape(text)}</a:t></a:r></a:p></p:txBody></p:sp>`;
+}
+
+function imgShape(x, y, w, h, rId) {
+  const id = nextId();
+  return `<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="img${id}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr>
+<p:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill>
+<p:spPr><a:xfrm><a:off x="${in2emu(x)}" y="${in2emu(y)}"/><a:ext cx="${in2emu(w)}" cy="${in2emu(h)}"/></a:xfrm>
+<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
+}
+
+function slideXml(spTreeContent, bg='FFFFFF') {
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+  xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<p:cSld><p:bg><p:bgPr><a:solidFill><a:srgbClr val="${bg}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg>
+<p:spTree>${spTreeContent}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+}
+
+function slideRelsXml(images) {
+  // images = [{rId, ext}]
+  let rels = images.map(im => `<Relationship Id="${im.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${im.rId}.${im.ext}"/>`).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId999" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+${rels}
+</Relationships>`;
+}
+
+function nvGrpSpPr() {
+  return `<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>`;
+}
+
+async function base64ToBlob(b64, mime) {
+  const bin = atob(b64.split(',')[1] || b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return arr;
+}
+
 async function generatePPT() {
   const btn = document.getElementById('btn-gen');
   btn.innerHTML = '<div class="spinner"></div><span>Génération...</span>';
   btn.disabled = true;
+  _spId = 10;
 
   try {
+    if (typeof JSZip === 'undefined') throw new Error('JSZip non chargé');
+
     const siteName = document.getElementById('site-name').value || 'SITE';
     const siteDate = document.getElementById('site-date').value || new Date().toLocaleDateString('fr-FR');
     const siteLeader = document.getElementById('site-leader').value || '';
-    const siteRegion = document.getElementById('site-region').value || '';
-    const siteSBC = document.getElementById('site-sbc').value || '';
 
-    const pptx = new PptxGenJS();
-    pptx.layout = 'LAYOUT_WIDE';
+    const zip = new JSZip();
+    const slides = [];
+    const allMedia = {}; // rId -> {data, ext}
 
-    // ---- SLIDE 1: Page de garde ----
-    const slide1 = pptx.addSlide();
-    slide1.background = { color: 'FFFFFF' };
+    // ---- Helper: add image to media ----
+    let imgCounter = 0;
+    async function addImg(b64data) {
+      imgCounter++;
+      const rId = `rImg${imgCounter}`;
+      const ext = b64data.startsWith('data:image/png') ? 'png' : 'jpeg';
+      const raw = await base64ToBlob(b64data, `image/${ext}`);
+      allMedia[rId] = { data: raw, ext };
+      return rId;
+    }
 
-    // Left white section
-    slide1.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 3.5, h: 7.5, fill: { color: 'FFFFFF' } });
+    // ============ SLIDE 1: Page de garde ============
+    {
+      const shapes = [
+        nvGrpSpPr(),
+        rect(0, 0, 3.5, 7.5, '#FFFFFF'),
+        rect(3.5, 0, 6.5, 7.5, '#C8D4E0'),
+        rect(0.3, 5.8, 1.5, 0.35, '#CF0A2C'),
+        textBox(0.3, 5.8, 1.5, 0.35, 'HUAWEI', 11, true, '#FFFFFF', 'center'),
+        textBox(4.0, 1.8, 5.2, 0.6, 'Rapport de visite de Site :', 20, true, '#1A1A1A', 'left'),
+        textBox(4.0, 2.5, 5.2, 0.8, siteName, 28, true, '#1A1A1A', 'left'),
+        textBox(0.05, 0.2, 0.28, 3.5, 'Security Level:', 7, false, '#999999', 'center', -90),
+        textBox(0.05, 4.5, 0.28, 2.8, 'Huawei Proprietary - Restricted Distribution', 6, false, '#BBBBBB', 'center', -90),
+      ];
+      slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: [], images: [] });
+    }
 
-    // Right section with background color
-    slide1.addShape(pptx.ShapeType.rect, { x: 3.5, y: 0, w: 6.5, h: 7.5, fill: { color: 'D0D8E4' } });
-
-    // Huawei logo area
-    slide1.addShape(pptx.ShapeType.rect, { x: 0.3, y: 6.0, w: 1.8, h: 0.4, fill: { color: 'CF0A2C' } });
-    slide1.addText('HUAWEI', { x: 0.3, y: 6.0, w: 1.8, h: 0.4, fontSize: 14, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
-
-    // Vertical title on right
-    slide1.addText('Rapport de visite de Site :', {
-      x: 4.0, y: 2.0, w: 5.5, h: 0.7,
-      fontSize: 24, bold: true, color: '1A1A1A', align: 'left'
-    });
-    slide1.addText(siteName, {
-      x: 4.0, y: 2.8, w: 5.5, h: 0.8,
-      fontSize: 32, bold: true, color: '1A1A1A', align: 'left'
-    });
-
-    // Security Level
-    slide1.addText('Security Level:', {
-      x: 0.1, y: 0.2, w: 0.3, h: 4,
-      fontSize: 8, color: '888888', rotate: 270
-    });
-
-    // Huawei Proprietary
-    slide1.addText('Huawei Proprietary - Restricted Distribution', {
-      x: 0.1, y: 5.5, w: 0.3, h: 2,
-      fontSize: 7, color: 'AAAAAA', rotate: 270
-    });
-
-    // ---- SLIDES 2+: Écarts ----
+    // ============ SLIDES Écarts ============
     for (const ecart of ecarts) {
-      const slide = pptx.addSlide();
-      slide.background = { color: 'FFFFFF' };
-
-      // Orange right banner
-      slide.addShape(pptx.ShapeType.rect, { x: 9.5, y: 0, w: 0.5, h: 7.5, fill: { color: 'F5A623' } });
-      slide.addText('Detaille generale', {
-        x: 9.5, y: 0, w: 0.5, h: 7.5,
-        fontSize: 10, bold: true, color: 'FFFFFF',
-        align: 'center', valign: 'middle', rotate: 270
-      });
-
-      // Page number
-      slide.addText('3', { x: 0.2, y: 0.2, w: 0.4, h: 0.3, fontSize: 10, color: '888888' });
-
-      // Info block
-      slide.addText(`1- Date de visite: ${siteDate}`, { x: 5.5, y: 0.3, w: 3.8, h: 0.35, fontSize: 11, bold: true, color: '1A1A1A' });
-      slide.addText(`2- Equipe visiteur: ${siteLeader}`, { x: 5.5, y: 0.7, w: 3.8, h: 0.35, fontSize: 11, bold: true, color: '1A1A1A' });
-
-      // Photos
-      const gpsLat = ecart.gps ? ecart.gps.lat.toFixed(6) : '#na';
-      const gpsLon = ecart.gps ? ecart.gps.lon.toFixed(6) : '#na';
-
-      const photoW = 4.5;
-      const photoH = 2.8;
+      const imgRels = [];
+      let ph1 = '', ph2 = '';
 
       if (ecart.photos[0]) {
-        slide.addImage({ data: ecart.photos[0], x: 0.3, y: 1.2, w: photoW, h: photoH });
+        const rId = await addImg(ecart.photos[0]);
+        imgRels.push({ rId, ext: allMedia[rId].ext });
+        ph1 = imgShape(0.3, 1.1, 4.6, 2.9, rId);
       } else {
-        slide.addShape(pptx.ShapeType.rect, { x: 0.3, y: 1.2, w: photoW, h: photoH, fill: { color: 'EEEEEE' } });
-        slide.addText('Photo 1', { x: 0.3, y: 1.2, w: photoW, h: photoH, fontSize: 12, color: 'AAAAAA', align: 'center', valign: 'middle' });
+        ph1 = rect(0.3, 1.1, 4.6, 2.9, '#EEEEEE') + textBox(0.3, 1.1, 4.6, 2.9, 'Photo 1', 12, false, '#AAAAAA', 'center');
       }
 
       if (ecart.photos[1]) {
-        slide.addImage({ data: ecart.photos[1], x: 0.3, y: 4.2, w: photoW, h: photoH });
+        const rId = await addImg(ecart.photos[1]);
+        imgRels.push({ rId, ext: allMedia[rId].ext });
+        ph2 = imgShape(0.3, 4.2, 4.6, 2.9, rId);
       } else {
-        slide.addShape(pptx.ShapeType.rect, { x: 0.3, y: 4.2, w: photoW, h: photoH, fill: { color: 'EEEEEE' } });
-        slide.addText('Photo 2', { x: 0.3, y: 4.2, w: photoW, h: photoH, fontSize: 12, color: 'AAAAAA', align: 'center', valign: 'middle' });
+        ph2 = rect(0.3, 4.2, 4.6, 2.9, '#EEEEEE') + textBox(0.3, 4.2, 4.6, 2.9, 'Photo 2', 12, false, '#AAAAAA', 'center');
       }
 
-      // Comment
-      if (ecart.commentaire) {
-        slide.addText(ecart.commentaire, {
-          x: 5.5, y: 4.5, w: 3.8, h: 1.5,
-          fontSize: 13, bold: true, color: '1A1A1A', align: 'center', valign: 'middle'
-        });
-      }
-
-      // Huawei footer
-      slide.addShape(pptx.ShapeType.rect, { x: 0, y: 7.1, w: 1.5, h: 0.3, fill: { color: 'CF0A2C' } });
-      slide.addText('HUAWEI', { x: 0, y: 7.1, w: 1.5, h: 0.3, fontSize: 8, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
-      slide.addText('Huawei Proprietary - Restricted Distribution', { x: 1.8, y: 7.15, w: 5, h: 0.25, fontSize: 7, color: 'AAAAAA' });
+      const shapes = [
+        nvGrpSpPr(),
+        rect(9.5, 0, 0.5, 7.5, '#F5A623'),
+        textBox(9.5, 0.5, 0.5, 6.5, 'Détaille générale', 9, true, '#FFFFFF', 'center', -90),
+        textBox(0.2, 0.15, 0.5, 0.3, '2', 9, false, '#888888', 'left'),
+        textBox(5.3, 0.2, 4.0, 0.38, `1- Date de visite: ${siteDate}`, 10, true, '#1A1A1A', 'left'),
+        textBox(5.3, 0.65, 4.0, 0.38, `2- Equipe visiteur: ${siteLeader}`, 10, true, '#1A1A1A', 'left'),
+        ph1, ph2,
+        ecart.commentaire ? textBox(5.3, 4.0, 3.9, 1.8, ecart.commentaire, 12, true, '#1A1A1A', 'center') : '',
+        rect(0, 7.1, 1.5, 0.32, '#CF0A2C'),
+        textBox(0, 7.1, 1.5, 0.32, 'HUAWEI', 8, true, '#FFFFFF', 'center'),
+        textBox(1.7, 7.15, 5.5, 0.25, 'Huawei Proprietary - Restricted Distribution', 6, false, '#AAAAAA', 'left'),
+      ];
+      slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: imgRels, images: imgRels });
     }
 
-    // ---- SLIDE RECAP: Écarts à corriger ----
-    const slideRecap = pptx.addSlide();
-    slideRecap.background = { color: 'FFFFFF' };
+    // ============ SLIDE Récap ============
+    {
+      const cols = ['#', 'Site name', 'Region', 'SBC', 'Visit leader', 'Date of visit', "Point d'action", 'Porteur', 'Deadline'];
+      const colW = [0.28, 1.15, 0.88, 0.75, 1.15, 0.88, 1.45, 0.88, 0.78];
+      const shapes = [nvGrpSpPr()];
+      shapes.push(rect(9.5, 0, 0.5, 7.5, '#F5A623'));
+      shapes.push(textBox(9.5, 0.5, 0.5, 6.5, '- Ecarts à corriger', 9, true, '#FFFFFF', 'center', -90));
 
-    // Orange right banner
-    slideRecap.addShape(pptx.ShapeType.rect, { x: 9.5, y: 0, w: 0.5, h: 7.5, fill: { color: 'F5A623' } });
-    slideRecap.addText('- Ecarts a corriger', {
-      x: 9.5, y: 0, w: 0.5, h: 7.5,
-      fontSize: 10, bold: true, color: 'FFFFFF',
-      align: 'center', valign: 'middle', rotate: 270
-    });
-
-    // Table headers
-    const cols = ['#', 'Site name', 'Region', 'SBC', 'Visit leader', 'Date of visit', "Point d'action", 'Porteur', 'Deadline'];
-    const colW = [0.3, 1.2, 0.9, 0.8, 1.2, 0.9, 1.5, 0.9, 0.8];
-    let xPos = 0.3;
-    const headerY = 0.5;
-
-    cols.forEach((col, i) => {
-      slideRecap.addShape(pptx.ShapeType.rect, { x: xPos, y: headerY, w: colW[i], h: 0.35, fill: { color: 'F5A623' } });
-      slideRecap.addText(col, { x: xPos, y: headerY, w: colW[i], h: 0.35, fontSize: 7, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
-      xPos += colW[i];
-    });
-
-    // Table rows from recap tbody
-    const rows = document.getElementById('recap-tbody').querySelectorAll('tr');
-    rows.forEach((row, ri) => {
-      const cells = row.querySelectorAll('td');
-      let xp = 0.3;
-      const rowY = headerY + 0.35 + ri * 0.32;
-      const bgColor = ri % 2 === 0 ? 'FFFFFF' : 'FAFAFA';
-      cols.forEach((_, ci) => {
-        const cell = cells[ci];
-        const val = cell ? (cell.querySelector('input')?.value || cell.textContent.trim() || '#na') : '#na';
-        slideRecap.addShape(pptx.ShapeType.rect, { x: xp, y: rowY, w: colW[ci], h: 0.30, fill: { color: bgColor }, line: { color: 'E5E7EB', width: 0.5 } });
-        slideRecap.addText(val, { x: xp, y: rowY, w: colW[ci], h: 0.30, fontSize: 7, color: '1A1A1A', align: 'center', valign: 'middle' });
-        xp += colW[ci];
+      let xp = 0.28;
+      const hy = 0.4;
+      cols.forEach((col, i) => {
+        shapes.push(rect(xp, hy, colW[i], 0.34, '#F5A623'));
+        shapes.push(textBox(xp, hy, colW[i], 0.34, col, 7, true, '#FFFFFF', 'center'));
+        xp += colW[i];
       });
+
+      const rows = document.getElementById('recap-tbody').querySelectorAll('tr');
+      rows.forEach((row, ri) => {
+        const cells = row.querySelectorAll('td');
+        let xr = 0.28;
+        const ry = hy + 0.34 + ri * 0.30;
+        const bg = ri % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
+        cols.forEach((_, ci) => {
+          const cell = cells[ci];
+          const val = cell ? (cell.querySelector('input')?.value || cell.textContent.trim() || '') : '';
+          shapes.push(rect(xr, ry, colW[ci], 0.28, bg, '#DDDDDD'));
+          if (val) shapes.push(textBox(xr, ry, colW[ci], 0.28, val, 7, false, '#1A1A1A', 'center'));
+          xr += colW[ci];
+        });
+      });
+
+      shapes.push(rect(0, 7.1, 1.5, 0.32, '#CF0A2C'));
+      shapes.push(textBox(0, 7.1, 1.5, 0.32, 'HUAWEI', 8, true, '#FFFFFF', 'center'));
+      shapes.push(textBox(1.7, 7.15, 5.5, 0.25, 'Huawei Proprietary - Restricted Distribution', 6, false, '#AAAAAA', 'left'));
+
+      slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: [], images: [] });
+    }
+
+    // ============ BUILD ZIP ============
+    // [Content_Types]
+    let ctypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Default Extension="jpeg" ContentType="image/jpeg"/>
+<Default Extension="jpg" ContentType="image/jpeg"/>
+<Default Extension="png" ContentType="image/png"/>
+<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
+<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>`;
+    slides.forEach((_, i) => { ctypes += `<Override PartName="/ppt/slides/slide${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`; });
+    ctypes += `</Types>`;
+
+    // _rels/.rels
+    const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+</Relationships>`;
+
+    // ppt/presentation.xml
+    let slideIds = slides.map((_, i) => `<p:sldId id="${256+i}" r:id="rSlide${i+1}"/>`).join('');
+    const presXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+  xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rMaster1"/></p:sldMasterIdLst>
+<p:sldIdLst>${slideIds}</p:sldIdLst>
+<p:sldSz cx="${in2emu(10)}" cy="${in2emu(7.5)}" type="custom"/>
+<p:notesSz cx="${in2emu(7.5)}" cy="${in2emu(10)}"/>
+</p:presentation>`;
+
+    // ppt/_rels/presentation.xml.rels
+    let presRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rMaster1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>`;
+    slides.forEach((_, i) => { presRels += `<Relationship Id="rSlide${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i+1}.xml"/>`; });
+    presRels += `</Relationships>`;
+
+    // Minimal slideMaster
+    const masterXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld>
+<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>
+<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rLayout1"/></p:sldLayoutIdLst>
+</p:sldMaster>`;
+
+    const masterRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rLayout1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+</Relationships>`;
+
+    const layoutXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" type="blank">
+<p:cSld name="Blank"><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr></p:spTree></p:cSld>
+<p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`;
+
+    const layoutRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rMaster1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+</Relationships>`;
+
+    // Add to ZIP
+    zip.file('[Content_Types].xml', ctypes);
+    zip.file('_rels/.rels', rootRels);
+    zip.file('ppt/presentation.xml', presXml);
+    zip.file('ppt/_rels/presentation.xml.rels', presRels);
+    zip.file('ppt/slideMasters/slideMaster1.xml', masterXml);
+    zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', masterRels);
+    zip.file('ppt/slideLayouts/slideLayout1.xml', layoutXml);
+    zip.file('ppt/slideLayouts/_rels/slideLayout1.xml.rels', layoutRels);
+
+    // Add slides
+    slides.forEach((slide, i) => {
+      zip.file(`ppt/slides/slide${i+1}.xml`, slide.xml);
+      zip.file(`ppt/slides/_rels/slide${i+1}.xml.rels`, slideRelsXml(slide.images));
     });
 
-    // Huawei footer
-    slideRecap.addShape(pptx.ShapeType.rect, { x: 0, y: 7.1, w: 1.5, h: 0.3, fill: { color: 'CF0A2C' } });
-    slideRecap.addText('HUAWEI', { x: 0, y: 7.1, w: 1.5, h: 0.3, fontSize: 8, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
-    slideRecap.addText('Huawei Proprietary - Restricted Distribution', { x: 1.8, y: 7.15, w: 5, h: 0.25, fontSize: 7, color: 'AAAAAA' });
+    // Add media
+    for (const [rId, media] of Object.entries(allMedia)) {
+      zip.file(`ppt/media/${rId}.${media.ext}`, media.data);
+    }
 
-    await pptx.writeFile({ fileName: `Visite_${siteName}_${siteDate.replace(/\//g,'-')}.pptx` });
+    // Generate and download
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Visite_${siteName}_${siteDate.replace(/\//g,'-')}.pptx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
     toast('✅ PPT généré avec succès !');
+
   } catch(err) {
-    console.error(err);
-    toast('❌ Erreur lors de la génération');
+    console.error('PPT error:', err);
+    toast('❌ Erreur: ' + err.message);
   }
 
   btn.innerHTML = '<span>⬇ Générer PPT</span>';
