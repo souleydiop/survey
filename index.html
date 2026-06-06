@@ -604,13 +604,15 @@ async function generatePPT() {
         rect(0, 5.8, 10, 1.7, '#FFFFFF'),
         // Background image top
         imgShape(0, 0, 10, 5.85, bgRId),
-        // Titles
-        textBox(0.5, 0.35, 6.5, 0.5, 'Rapport de visite de Site :', 20, true, '#1A1A1A', 'left'),
-        textBox(0.5, 0.95, 6.5, 0.65, siteName, 28, true, '#1A1A1A', 'left'),
-        // Security Level
-        textBox(0.05, 0.1, 0.25, 3.0, 'Security Level:', 7, false, '#999999', 'center', -90),
-        // Logo bottom right
-        imgShape(7.1, 6.05, 2.7, 0.78, 'rLogo'),
+        // Titre unique centré sur fond image
+        textBox(0.4, 0.3, 7.0, 0.55, 'Rapport de visite de Site :', 22, true, '#1A1A1A', 'left'),
+        textBox(0.4, 0.92, 7.0, 0.7, siteName, 30, true, '#1A1A1A', 'left'),
+        // Security Level vertical gauche
+        textBox(0.05, 0.1, 0.22, 4.0, 'Security Level:', 6, false, '#888888', 'center', -90),
+        // Logo Huawei bas droite
+        imgShape(7.0, 6.1, 2.8, 0.72, 'rLogo'),
+        // Texte bas gauche
+        textBox(0.2, 6.85, 3.0, 0.25, 'Security Level:', 7, false, '#AAAAAA', 'left'),
         // Footer
         textBox(0.2, 6.9, 4.0, 0.25, 'Security Level:', 7, false, '#AAAAAA', 'left'),
       ];
@@ -627,30 +629,36 @@ async function generatePPT() {
       if (ecart.photos[0]) {
         const rId = await addImg(ecart.photos[0]);
         imgRels.push({ rId, ext: allMedia[rId].ext });
-        ph1 = imgShape(0.2, 1.5, 4.3, 5.2, rId);
+        ph1 = imgShape(0.2, 1.43, 4.35, 5.3, rId);
       } else {
-        ph1 = rect(0.2, 1.5, 4.3, 5.2, '#EEEEEE') + textBox(0.2, 1.5, 4.3, 5.2, 'Photo 1', 12, false, '#AAAAAA', 'center');
+        ph1 = rect(0.2, 1.43, 4.35, 5.3, '#EEEEEE') + textBox(0.2, 1.43, 4.35, 5.3, 'Photo 1', 12, false, '#AAAAAA', 'center');
       }
 
       if (ecart.photos[1]) {
         const rId = await addImg(ecart.photos[1]);
         imgRels.push({ rId, ext: allMedia[rId].ext });
-        ph2 = imgShape(4.6, 1.5, 4.3, 5.2, rId);
+        ph2 = imgShape(4.65, 1.43, 4.45, 5.3, rId);
       } else {
-        ph2 = rect(4.6, 1.5, 4.3, 5.2, '#EEEEEE') + textBox(4.6, 1.5, 4.3, 5.2, 'Photo 2', 12, false, '#AAAAAA', 'center');
+        ph2 = rect(4.65, 1.43, 4.45, 5.3, '#EEEEEE') + textBox(4.65, 1.43, 4.45, 5.3, 'Photo 2', 12, false, '#AAAAAA', 'center');
       }
 
       const shapes = [
         nvGrpSpPr(),
-        rect(9.5, 0, 0.5, 7.5, '#F5A623'),
-        textBox(9.5, 0.5, 0.5, 6.5, 'Détaille générale', 9, true, '#FFFFFF', 'center', -90),
-        textBox(0.2, 0.15, 0.5, 0.3, '2', 9, false, '#888888', 'left'),
-        textBox(5.3, 0.2, 4.0, 0.38, `1- Date de visite: ${siteDate}`, 10, true, '#1A1A1A', 'left'),
-        textBox(5.3, 0.65, 4.0, 0.38, `2- Equipe visiteur: ${siteLeader}`, 10, true, '#1A1A1A', 'left'),
+        // Bandeau orange horizontal pleine largeur (comme maquette)
+        rect(0, 0, 10, 0.42, '#F5A623'),
+        textBox(0, 0, 10, 0.42, 'Detaille generale', 14, true, '#FFFFFF', 'center'),
+        // Infos visite sous le bandeau
+        textBox(0.3, 0.52, 8.5, 0.36, `1- Date de visite: ${siteDate}`, 12, false, '#1A1A1A', 'left'),
+        textBox(0.3, 0.92, 8.5, 0.36, `2- Equipe visiteur: ${siteLeader}`, 12, false, '#1A1A1A', 'left'),
+        // Encadré photos
+        rect(0.15, 1.38, 9.1, 5.42, '#FFFFFF', '#CCCCCC'),
+        // Photos côte à côte
         ph1, ph2,
-        ecart.commentaire ? textBox(5.3, 4.0, 3.9, 1.8, ecart.commentaire, 12, true, '#1A1A1A', 'center') : '',
-        imgShape(0.05, 7.0, 1.6, 0.42, "rLogo"),
-        textBox(1.7, 7.15, 5.5, 0.25, 'Huawei Proprietary - Restricted Distribution', 6, false, '#AAAAAA', 'left'),
+        // Commentaire à droite des photos
+        ecart.commentaire ? textBox(4.65, 1.45, 4.45, 3.0, ecart.commentaire, 12, false, '#1A1A1A', 'left') : '',
+        // Footer logo + texte
+        imgShape(0.15, 6.98, 1.9, 0.44, 'rLogo'),
+        textBox(2.2, 7.08, 6.0, 0.25, 'Huawei Proprietary - Restricted Distribution', 7, false, '#888888', 'left'),
       ];
       const ecartImgRels = [...imgRels, {rId:'rLogo', ext:'png'}]; slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: ecartImgRels, images: ecartImgRels });
     }
@@ -661,10 +669,10 @@ async function generatePPT() {
       const colW = [0.28, 1.15, 0.88, 0.75, 1.15, 0.88, 1.45, 0.88, 0.78];
       const shapes = [nvGrpSpPr()];
       shapes.push(rect(0, 0, 10, 0.42, '#F5A623'));
-      shapes.push(textBox(0, 0, 10, 0.42, '- Ecarts a corriger', 13, true, '#FFFFFF', 'center'));
+      shapes.push(textBox(0, 0, 10, 0.42, '- Ecarts a corriger', 14, true, '#FFFFFF', 'center'));
 
       let xp = 0.28;
-      const hy = 0.65;
+      const hy = 0.62;
       cols.forEach((col, i) => {
         shapes.push(rect(xp, hy, colW[i], 0.34, '#F5A623'));
         shapes.push(textBox(xp, hy, colW[i], 0.34, col, 7, true, '#FFFFFF', 'center'));
@@ -686,8 +694,8 @@ async function generatePPT() {
         });
       });
 
-      shapes.push(imgShape(0.15, 7.0, 1.8, 0.42, 'rLogo'));
-      shapes.push(textBox(2.1, 7.1, 5.5, 0.25, 'Huawei Proprietary - Restricted Distribution', 6, false, '#AAAAAA', 'left'));
+      shapes.push(imgShape(0.15, 6.98, 1.9, 0.44, 'rLogo'));
+      shapes.push(textBox(2.2, 7.08, 6.0, 0.25, 'Huawei Proprietary - Restricted Distribution', 7, false, '#888888', 'left'));
 
       slides.push({ xml: slideXml(shapes.join(''), 'FFFFFF'), rels: [{rId:'rLogo', ext:'png'}], images: [{rId:'rLogo', ext:'png'}] });
     }
