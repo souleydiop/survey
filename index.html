@@ -164,7 +164,7 @@
     </div>
     <div class="field">
       <label>Chef d'équipe (Visit Leader)</label>
-      <input type="text" id="site-leader" placeholder="ex: Souleymane DIOP">
+      <input type="text" id="site-leader" placeholder="ex: Prénom NOM">
     </div>
   </div>
 
@@ -219,6 +219,10 @@
     <div class="field">
       <label>Fichier KMZ / KML</label>
       <input type="file" id="kmz-input" accept=".kmz,.kml" onchange="loadKMZ(this)">
+      <div id="kmz-saved-label" style="margin-top:6px;font-size:12px;color:var(--orange-dark);font-weight:600;"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px;">
+      <button class="btn btn-ghost btn-sm" onclick="clearSavedKML()">🗑️ Effacer sites</button>
     </div>
     <div id="gps-status" class="geo-badge waiting" style="margin-top:8px;">
       📍 Localisation en attente...
@@ -860,6 +864,9 @@ function initMap() {
     attribution: '© OpenStreetMap'
   }).addTo(map);
 
+  // Restore saved KML
+  loadSavedKML();
+
   // Get user location
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(pos => {
@@ -891,8 +898,42 @@ async function loadKMZ(input) {
     kmlText = await file.text();
   }
 
+  // Sauvegarder en localStorage pour persistance
+  try {
+    localStorage.setItem('sitevisit_kml', kmlText);
+    localStorage.setItem('sitevisit_kml_name', file.name);
+  } catch(e) { console.warn('Storage full'); }
+
   parseKML(kmlText);
-  toast(`✅ ${sites.length} sites chargés`);
+  toast(`✅ ${sites.length} sites chargés et sauvegardés`);
+}
+
+function loadSavedKML() {
+  try {
+    const saved = localStorage.getItem('sitevisit_kml');
+    const name = localStorage.getItem('sitevisit_kml_name') || 'fichier sauvegardé';
+    if (saved) {
+      parseKML(saved);
+      // Update file input label
+      const label = document.getElementById('kmz-saved-label');
+      if (label) label.textContent = `📂 ${name} (${sites.length} sites)`;
+      toast(`✅ ${sites.length} sites restaurés`);
+    }
+  } catch(e) {}
+}
+
+function clearSavedKML() {
+  localStorage.removeItem('sitevisit_kml');
+  localStorage.removeItem('sitevisit_kml_name');
+  sites = [];
+  markers.forEach(m => map && map.removeLayer(m.marker));
+  markers = [];
+  locSiteMarkers.forEach(m => mapLoc && mapLoc.removeLayer(m.marker));
+  locSiteMarkers = [];
+  document.getElementById('site-list').innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">Chargez un fichier KMZ pour voir les sites</div>';
+  const label = document.getElementById('kmz-saved-label');
+  if (label) label.textContent = '';
+  toast('🗑️ Sites supprimés');
 }
 
 function parseKML(kmlText) {
@@ -1146,6 +1187,15 @@ function initLocMap() {
 document.getElementById('site-date').value = new Date().toISOString().split('T')[0];
 // Add first ecart by default
 addEcart();
+// Restore saved KML on startup
+setTimeout(() => {
+  const saved = localStorage.getItem('sitevisit_kml');
+  const name = localStorage.getItem('sitevisit_kml_name') || 'fichier sauvegardé';
+  if (saved) {
+    const label = document.getElementById('kmz-saved-label');
+    if (label) label.textContent = `📂 ${name} — prêt (chargé au démarrage)`;
+  }
+}, 200);
 </script>
 
 </body>
