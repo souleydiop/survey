@@ -243,6 +243,40 @@
 
 </div>
 
+<!-- LOCALISATION SCREEN -->
+<div id="screen-localisation" class="screen">
+
+  <div class="section-title">Localisation Site</div>
+
+  <div class="card">
+    <div class="field">
+      <label>Rayon de couverture</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <button class="btn btn-ghost btn-sm radius-btn" onclick="setRadius(500)">500 m</button>
+        <button class="btn btn-ghost btn-sm radius-btn" onclick="setRadius(1000)">1 km</button>
+        <button class="btn btn-ghost btn-sm radius-btn" onclick="setRadius(5000)">5 km</button>
+        <button class="btn btn-ghost btn-sm radius-btn" onclick="setRadius(10000)">10 km</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="number" id="radius-input" placeholder="Rayon en mètres" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;">
+        <button class="btn btn-orange btn-sm" onclick="applyCustomRadius()">OK</button>
+      </div>
+    </div>
+    <div id="loc-status" class="geo-badge waiting">📍 Localisation en cours...</div>
+  </div>
+
+  <div id="map-loc" style="width:100%;height:55vh;border-radius:12px;overflow:hidden;margin-bottom:12px;"></div>
+
+  <div class="card" id="sites-in-radius-card" style="display:none;">
+    <div class="card-header">
+      <div class="card-header-icon">📡</div>
+      <div class="card-title">Sites dans le rayon</div>
+    </div>
+    <div id="sites-in-radius-list"></div>
+  </div>
+
+</div>
+
 <!-- Bottom Tab Bar -->
 <div class="bottom-tabs">
   <button class="bottom-tab active" id="tab-rapport" onclick="showScreen('rapport')">
@@ -252,6 +286,10 @@
   <button class="bottom-tab" id="tab-sites" onclick="showScreen('sites')">
     <span class="tab-icon">🗺️</span>
     Sites
+  </button>
+  <button class="bottom-tab" id="tab-localisation" onclick="showScreen('localisation')">
+    <span class="tab-icon">📡</span>
+    Localisation
   </button>
 </div>
 
@@ -280,6 +318,7 @@ function showScreen(name) {
   document.getElementById('screen-' + name).classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
   if (name === 'sites' && !map) initMap();
+  if (name === 'localisation') initLocMap();
 }
 
 // ============ TOAST ============
@@ -938,18 +977,60 @@ function clearSelection() {
   toast('Sélection vidée');
 }
 
-function buildRoute() {
+async function buildRoute() {
   if (selectedSites.size === 0) { toast('Sélectionnez au moins un site'); return; }
-  if (routeLayer) map.removeLayer(routeLayer);
+  if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
 
   const selected = [...selectedSites].map(id => sites[id]).filter(Boolean);
-  let points = [];
-  if (userLocation) points.push(L.latLng(userLocation[0], userLocation[1]));
-  selected.forEach(s => points.push(L.latLng(s.lat, s.lon)));
+  if (!userLocation) { toast('Position GPS non disponible'); return; }
 
-  routeLayer = L.polyline(points, { color: '#cf0a2c', weight: 3, dashArray: '8,5' }).addTo(map);
-  map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
-  toast(`Itinéraire: ${selected.length} site(s) sélectionné(s)`);
+  toast('⏳ Calcul itinéraire...');
+
+  // Build waypoints: start from user location, then selected sites
+  const waypoints = [
+    [userLocation[1], userLocation[0]], // lon,lat for OSRM
+    ...selected.map(s => [s.lon, s.lat])
+  ];
+
+  const coords = waypoints.map(w => w.join(',')).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`;
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (data.code !== 'Ok' || !data.routes || !data.routes[0]) {
+      toast('❌ Itinéraire introuvable — tracé direct');
+      // Fallback to straight line
+      const pts = [L.latLng(userLocation[0], userLocation[1]), ...selected.map(s => L.latLng(s.lat, s.lon))];
+      routeLayer = L.polyline(pts, { color: '#cf0a2c', weight: 3, dashArray: '6,4' }).addTo(map);
+      map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+      return;
+    }
+
+    const route = data.routes[0];
+    const coords_geojson = route.geometry.coordinates; // [lon, lat] pairs
+    const latlngs = coords_geojson.map(c => L.latLng(c[1], c[0]));
+
+    routeLayer = L.polyline(latlngs, {
+      color: '#cf0a2c',
+      weight: 4,
+      opacity: 0.85
+    }).addTo(map);
+
+    map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+
+    // Show distance and duration
+    const dist = (route.distance / 1000).toFixed(1);
+    const dur = Math.round(route.duration / 60);
+    toast(`🛣️ ${dist} km — ~${dur} min`);
+
+  } catch(e) {
+    toast('❌ Erreur routage — tracé direct');
+    const pts = [L.latLng(userLocation[0], userLocation[1]), ...selected.map(s => L.latLng(s.lat, s.lon))];
+    routeLayer = L.polyline(pts, { color: '#cf0a2c', weight: 3, dashArray: '6,4' }).addTo(map);
+    map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+  }
 }
 
 function calcDist(lat1, lon1, lat2, lon2) {
@@ -960,7 +1041,108 @@ function calcDist(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// Init: set today's date
+// ============ LOCALISATION MAP ============
+let mapLoc = null;
+let radiusCircle = null;
+let locUserMarker = null;
+let currentRadius = 1000;
+let locSiteMarkers = [];
+
+function setRadius(r) {
+  currentRadius = r;
+  document.getElementById('radius-input').value = r;
+  document.querySelectorAll('.radius-btn').forEach(b => {
+    b.classList.toggle('btn-orange', parseInt(b.textContent) === r || b.textContent.includes(r >= 1000 ? (r/1000)+'km' : r+'m'));
+    b.classList.toggle('btn-ghost', !(parseInt(b.textContent) === r));
+  });
+  updateLocRadius();
+}
+
+function applyCustomRadius() {
+  const val = parseInt(document.getElementById('radius-input').value);
+  if (val > 0) { currentRadius = val; updateLocRadius(); }
+}
+
+function updateLocRadius() {
+  if (!mapLoc || !locUserMarker) return;
+  if (radiusCircle) mapLoc.removeLayer(radiusCircle);
+  const pos = locUserMarker.getLatLng();
+  radiusCircle = L.circle(pos, {
+    radius: currentRadius,
+    color: '#cf0a2c',
+    fillColor: '#cf0a2c',
+    fillOpacity: 0.08,
+    weight: 2,
+    dashArray: '6,4'
+  }).addTo(mapLoc);
+
+  // Label radius
+  radiusCircle.bindTooltip(`Rayon: ${currentRadius >= 1000 ? (currentRadius/1000).toFixed(1)+' km' : currentRadius+' m'}`, {permanent: true, direction: 'center', className: 'radius-label'});
+
+  // Show sites inside radius
+  showSitesInRadius(pos.lat, pos.lng);
+  mapLoc.fitBounds(radiusCircle.getBounds(), {padding: [20,20]});
+}
+
+function showSitesInRadius(lat, lon) {
+  if (!sites.length) return;
+  const inRadius = sites.filter(s => calcDist(lat, lon, s.lat, s.lon) * 1000 <= currentRadius);
+
+  // Update markers color
+  locSiteMarkers.forEach(({marker, siteId}) => {
+    const s = sites[siteId];
+    const inside = calcDist(lat, lon, s.lat, s.lon) * 1000 <= currentRadius;
+    marker.setStyle({ fillColor: inside ? '#cf0a2c' : '#f5a623', radius: inside ? 10 : 7 });
+  });
+
+  // Update list
+  const card = document.getElementById('sites-in-radius-card');
+  const list = document.getElementById('sites-in-radius-list');
+  if (inRadius.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  list.innerHTML = inRadius.map(s => {
+    const d = (calcDist(lat, lon, s.lat, s.lon) * 1000).toFixed(0);
+    return `<div class="site-item">
+      <div class="site-info">
+        <div class="site-name">${s.name}</div>
+        <div class="site-coords">${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}</div>
+      </div>
+      <div class="site-dist">${d < 1000 ? d+' m' : (d/1000).toFixed(1)+' km'}</div>
+    </div>`;
+  }).join('');
+}
+
+function initLocMap() {
+  if (mapLoc) return;
+  mapLoc = L.map('map-loc').setView([14.5, -14.5], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(mapLoc);
+
+  // Add existing sites if loaded
+  sites.forEach((s, idx) => {
+    const m = L.circleMarker([s.lat, s.lon], {
+      radius: 7, fillColor: '#f5a623', color: 'white', weight: 2, fillOpacity: 0.9
+    }).addTo(mapLoc).bindPopup(`<b>${s.name}</b>`);
+    locSiteMarkers.push({ marker: m, siteId: idx });
+  });
+
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    locUserMarker = L.circleMarker([lat, lon], {
+      radius: 12, fillColor: '#cf0a2c', color: 'white', weight: 3, fillOpacity: 1
+    }).addTo(mapLoc).bindPopup('📍 Votre position').openPopup();
+
+    mapLoc.setView([lat, lon], 12);
+    document.getElementById('loc-status').textContent = `📍 ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+    document.getElementById('loc-status').className = 'geo-badge';
+
+    // Draw initial radius
+    setRadius(currentRadius);
+  }, () => {
+    document.getElementById('loc-status').textContent = '❌ GPS non disponible';
+  }, { enableHighAccuracy: true });
+}
 document.getElementById('site-date').value = new Date().toISOString().split('T')[0];
 // Add first ecart by default
 addEcart();
