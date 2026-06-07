@@ -165,7 +165,7 @@
     <div class="row2">
       <div class="field">
         <label>Nom du Site</label>
-        <input type="text" id="site-name" placeholder="ex: Site">
+        <input type="text" id="site-name" placeholder="ex: POPENGUINE04">
       </div>
       <div class="field">
         <label>Région</label>
@@ -184,7 +184,7 @@
     </div>
     <div class="field">
       <label>Chef d'équipe (Visit Leader)</label>
-      <input type="text" id="site-leader" placeholder="ex: Prénom Nom">
+      <input type="text" id="site-leader" placeholder="ex: Souleymane DIOP">
     </div>
   </div>
 
@@ -205,9 +205,9 @@
             <th>Site name</th>
             <th>Region</th>
             <th>SBC</th>
-            <th>Ecarts constatés</th>
-            <th>Date de visite</th>
-            <th>Plan d'action</th>
+            <th>Visit leader</th>
+            <th>Date of visit</th>
+            <th>Point d'action</th>
             <th>Porteur</th>
             <th>Deadline</th>
             <th></th>
@@ -570,6 +570,8 @@ async function generatePPT() {
     if (typeof JSZip === 'undefined') throw new Error('JSZip non chargé');
 
     const siteName = document.getElementById('site-name').value || 'SITE';
+    const siteRegion = document.getElementById('site-region').value || '';
+    const siteSBC = document.getElementById('site-sbc').value || '';
     const siteDate = document.getElementById('site-date').value || new Date().toLocaleDateString('fr-FR');
     const siteLeader = document.getElementById('site-leader').value || '';
 
@@ -604,9 +606,11 @@ async function generatePPT() {
         rect(0, 5.8, 10, 1.7, '#FFFFFF'),
         // Background image top
         imgShape(0, 0, 10, 5.85, bgRId),
-        // Titre unique centré sur fond image
-        textBox(0.4, 0.3, 7.0, 0.55, 'Rapport de visite de Site :', 22, true, '#1A1A1A', 'left'),
-        textBox(0.4, 0.92, 7.0, 0.7, siteName, 30, true, '#1A1A1A', 'left'),
+        // Rectangle blanc pour masquer le texte baked-in dans l'image de fond
+        rect(0.1, 0.08, 7.2, 1.5, '#FFFFFF'),
+        // Titre propre par-dessus
+        textBox(0.3, 0.15, 7.0, 0.52, 'Rapport de visite de Site :', 22, true, '#1A1A1A', 'left'),
+        textBox(0.3, 0.72, 7.0, 0.68, siteName, 30, true, '#1A1A1A', 'left'),
         // Security Level vertical gauche
         textBox(0.05, 0.1, 0.22, 4.0, 'Security Level:', 6, false, '#888888', 'center', -90),
         // Logo Huawei bas droite
@@ -629,34 +633,36 @@ async function generatePPT() {
       if (ecart.photos[0]) {
         const rId = await addImg(ecart.photos[0]);
         imgRels.push({ rId, ext: allMedia[rId].ext });
-        ph1 = imgShape(0.2, 1.43, 4.35, 5.3, rId);
+        ph1 = imgShape(0.2, 1.43, 3.1, 5.3, rId);
       } else {
-        ph1 = rect(0.2, 1.43, 4.35, 5.3, '#EEEEEE') + textBox(0.2, 1.43, 4.35, 5.3, 'Photo 1', 12, false, '#AAAAAA', 'center');
+        ph1 = rect(0.2, 1.43, 3.1, 5.3, '#EEEEEE') + textBox(0.2, 1.43, 3.1, 5.3, 'Photo 1', 12, false, '#AAAAAA', 'center');
       }
 
       if (ecart.photos[1]) {
         const rId = await addImg(ecart.photos[1]);
         imgRels.push({ rId, ext: allMedia[rId].ext });
-        ph2 = imgShape(4.65, 1.43, 4.45, 5.3, rId);
+        ph2 = imgShape(3.4, 1.43, 4.4, 5.3, rId);
       } else {
-        ph2 = rect(4.65, 1.43, 4.45, 5.3, '#EEEEEE') + textBox(4.65, 1.43, 4.45, 5.3, 'Photo 2', 12, false, '#AAAAAA', 'center');
+        ph2 = rect(3.4, 1.43, 4.4, 5.3, '#EEEEEE') + textBox(3.4, 1.43, 4.4, 5.3, 'Photo 2', 12, false, '#AAAAAA', 'center');
       }
 
       const shapes = [
         nvGrpSpPr(),
-        // Bandeau orange horizontal pleine largeur (comme maquette)
+        // Bandeau orange horizontal pleine largeur
         rect(0, 0, 10, 0.42, '#F5A623'),
         textBox(0, 0, 10, 0.42, 'Detaille generale', 14, true, '#FFFFFF', 'center'),
-        // Infos visite sous le bandeau
+        // Infos visite
         textBox(0.3, 0.52, 8.5, 0.36, `1- Date de visite: ${siteDate}`, 12, false, '#1A1A1A', 'left'),
         textBox(0.3, 0.92, 8.5, 0.36, `2- Equipe visiteur: ${siteLeader}`, 12, false, '#1A1A1A', 'left'),
-        // Encadré photos
+        // Encadré global (photos + commentaire)
         rect(0.15, 1.38, 9.1, 5.42, '#FFFFFF', '#CCCCCC'),
-        // Photos côte à côte
-        ph1, ph2,
-        // Commentaire à droite des photos
-        ecart.commentaire ? textBox(4.65, 1.45, 4.45, 3.0, ecart.commentaire, 12, false, '#1A1A1A', 'left') : '',
-        // Footer logo + texte
+        // Photo1 gauche (x=0.2, w=3.1)
+        ph1,
+        // Photo2 centre (x=3.4, w=4.4)
+        ph2,
+        // Commentaire à droite HORS photos (x=7.95, w=1.2) — zone dédiée
+        ecart.commentaire ? textBox(7.95, 1.45, 1.2, 5.3, ecart.commentaire, 11, false, '#1A1A1A', 'left') : '',
+        // Footer
         imgShape(0.15, 6.98, 1.9, 0.44, 'rLogo'),
         textBox(2.2, 7.08, 6.0, 0.25, 'Huawei Proprietary - Restricted Distribution', 7, false, '#888888', 'left'),
       ];
@@ -679,15 +685,23 @@ async function generatePPT() {
         xp += colW[i];
       });
 
-      const rows = document.getElementById('recap-tbody').querySelectorAll('tr');
-      rows.forEach((row, ri) => {
-        const cells = row.querySelectorAll('td');
+      // Auto-fill from ecarts[] array
+      ecarts.forEach((ecart, ri) => {
+        const rowVals = [
+          String(ri + 1),
+          siteName,
+          siteRegion,
+          siteSBC,
+          siteLeader,
+          siteDate,
+          ecart.commentaire || '',
+          '',  // Porteur vide
+          ''   // Deadline vide
+        ];
         let xr = 0.28;
         const ry = hy + 0.34 + ri * 0.30;
         const bg = ri % 2 === 0 ? '#FFFFFF' : '#F5F5F5';
-        cols.forEach((_, ci) => {
-          const cell = cells[ci];
-          const val = cell ? (cell.querySelector('input')?.value || cell.textContent.trim() || '') : '';
+        rowVals.forEach((val, ci) => {
           shapes.push(rect(xr, ry, colW[ci], 0.28, bg, '#DDDDDD'));
           if (val) shapes.push(textBox(xr, ry, colW[ci], 0.28, val, 7, false, '#1A1A1A', 'center'));
           xr += colW[ci];
