@@ -412,36 +412,40 @@ async function addWatermark(imgSrc, gps, siteName) {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
 
-      // Watermark background
+      // Watermark — taille fixe petite indépendante de la résolution
       const now = new Date();
-      const dateStr = now.toLocaleString('fr-FR');
+      const pad = n => String(n).padStart(2,'0');
+      const dateStr = `${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
       const lines = [
+        `Powered by SiteVisit`,
         gps ? `Latitude: ${gps.lat.toFixed(6)}` : 'Latitude: --',
         gps ? `Longitude: ${gps.lon.toFixed(6)}` : 'Longitude: --',
         `Temps: ${dateStr}`,
         `Note: ${siteName}`
       ];
 
-      const fontSize = Math.max(12, img.width * 0.025);
-      ctx.font = `bold ${fontSize}px Arial`;
-      const padding = fontSize * 0.5;
-      const lineH = fontSize * 1.4;
+      // Taille fixe: 1.8% de la largeur, max 18px (petit et lisible)
+      const fontSize = Math.min(18, Math.max(10, img.width * 0.018));
+      const padding = 6;
+      const lineH = fontSize * 1.35;
       const bgH = lines.length * lineH + padding * 2;
-      const bgW = img.width * 0.55;
+      const bgW = Math.min(img.width * 0.52, fontSize * 22);
 
-      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      // Fond semi-transparent bas gauche
+      ctx.fillStyle = 'rgba(0,0,0,0.50)';
       ctx.fillRect(0, img.height - bgH, bgW, bgH);
 
-      ctx.fillStyle = '#ff4444';
-      ctx.font = `bold ${fontSize * 0.85}px Arial`;
-      lines.forEach((line, i) => {
-        ctx.fillText(line, padding, img.height - bgH + padding + (i + 0.85) * lineH);
-      });
+      // Ligne 1: "Powered by SiteVisit" en blanc léger
+      ctx.fillStyle = 'rgba(255,255,255,0.65)';
+      ctx.font = `${fontSize * 0.85}px Arial`;
+      ctx.fillText(lines[0], padding, img.height - bgH + padding + lineH * 0.75);
 
-      // "Powered by NoteCam" style tag
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.font = `${fontSize * 0.7}px Arial`;
-      ctx.fillText('Powered by SiteVisit', padding, img.height - bgH + padding + 0.3 * lineH);
+      // Lignes suivantes: rouge vif
+      ctx.fillStyle = '#FF3333';
+      ctx.font = `bold ${fontSize}px Arial`;
+      for (let i = 1; i < lines.length; i++) {
+        ctx.fillText(lines[i], padding, img.height - bgH + padding + lineH * (i + 0.75));
+      }
 
       resolve(canvas.toDataURL('image/jpeg', 0.85));
     };
