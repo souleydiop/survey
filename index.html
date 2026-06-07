@@ -28,18 +28,15 @@
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   body { font-family: 'Barlow', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
-  /* NAV */
-  .nav { background: var(--huawei-dark); color: white; padding: 0; display: flex; flex-direction: column; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-  .nav-top { display: flex; align-items: center; padding: 12px 16px; gap: 12px; }
-  .nav-logo { display: flex; align-items: center; gap: 8px; }
-  .nav-logo svg { width: 32px; height: 32px; }
-  .nav-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
-  .nav-tabs { display: flex; border-top: 1px solid rgba(255,255,255,0.1); }
-  .nav-tab { flex: 1; padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.5); cursor: pointer; border: none; background: none; transition: all 0.2s; letter-spacing: 0.3px; text-transform: uppercase; }
-  .nav-tab.active { color: white; border-bottom: 2px solid var(--huawei-red); }
+  /* BOTTOM TAB BAR */
+  .bottom-tabs { position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a1a; display: flex; z-index: 100; border-top: 1px solid rgba(255,255,255,0.1); padding-bottom: env(safe-area-inset-bottom); }
+  .bottom-tab { flex: 1; padding: 10px 0 8px; text-align: center; font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.45); cursor: pointer; border: none; background: none; text-transform: uppercase; letter-spacing: 0.3px; display: flex; flex-direction: column; align-items: center; gap: 3px; transition: color 0.2s; }
+  .bottom-tab .tab-icon { font-size: 22px; line-height: 1; }
+  .bottom-tab.active { color: #cf0a2c; }
+  .bottom-tab.active .tab-icon { filter: drop-shadow(0 0 4px rgba(207,10,44,0.4)); }
 
   /* SCREENS */
-  .screen { display: none; padding: 16px; min-height: calc(100vh - 100px); }
+  .screen { display: none; padding: 16px 16px 80px 16px; min-height: 100vh; }
   .screen.active { display: block; }
 
   /* CARDS */
@@ -137,24 +134,7 @@
 </head>
 <body>
 
-<div class="nav">
-  <div class="nav-top">
-    <div class="nav-logo">
-      <!-- Huawei SVG logo -->
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20 4C20 4 14 10 14 18C14 22 16.5 25.5 20 27C23.5 25.5 26 22 26 18C26 10 20 4 20 4Z" fill="#cf0a2c"/>
-        <path d="M4 20C4 20 10 14 18 14C22 14 25.5 16.5 27 20C25.5 23.5 22 26 18 26C10 26 4 20 4 20Z" fill="#cf0a2c" opacity="0.7"/>
-        <path d="M20 36C20 36 26 30 26 22C26 18 23.5 14.5 20 13C16.5 14.5 14 18 14 22C14 30 20 36 20 36Z" fill="#cf0a2c" opacity="0.5"/>
-        <path d="M36 20C36 20 30 26 22 26C18 26 14.5 23.5 13 20C14.5 16.5 18 14 22 14C30 14 36 20 36 20Z" fill="#cf0a2c" opacity="0.85"/>
-      </svg>
-    </div>
-    <div class="nav-title">Site Visit Report</div>
-  </div>
-  <div class="nav-tabs">
-    <button class="nav-tab active" onclick="showScreen('rapport')">📋 Rapport</button>
-    <button class="nav-tab" onclick="showScreen('sites')">🗺️ Sites & Itinéraire</button>
-  </div>
-</div>
+<!-- Bottom tab bar - app style, no top header -->
 
 <!-- RAPPORT SCREEN -->
 <div id="screen-rapport" class="screen active">
@@ -263,6 +243,18 @@
 
 </div>
 
+<!-- Bottom Tab Bar -->
+<div class="bottom-tabs">
+  <button class="bottom-tab active" id="tab-rapport" onclick="showScreen('rapport')">
+    <span class="tab-icon">📋</span>
+    Rapport
+  </button>
+  <button class="bottom-tab" id="tab-sites" onclick="showScreen('sites')">
+    <span class="tab-icon">🗺️</span>
+    Sites
+  </button>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- Leaflet CSS + JS -->
@@ -284,9 +276,9 @@ let routeLayer = null;
 // ============ NAV ============
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.bottom-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
-  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
   if (name === 'sites' && !map) initMap();
 }
 
