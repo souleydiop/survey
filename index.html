@@ -145,6 +145,12 @@
   .ehs-btn.ok.on { background: #059669; border-color: #059669; color: #fff; }
   .ehs-btn.nok.on { background: var(--huawei-red); border-color: var(--huawei-red); color: #fff; }
   .ehs-row.is-nok .ehs-label { color: var(--huawei-red); }
+  .ehs-select { padding: 8px 6px; border-radius: 8px; border: 1.5px solid var(--border); background: #fafafa; font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700; color: var(--text-muted); min-width: 92px; flex-shrink: 0; }
+  .ehs-select.v-OK { background: #059669; border-color: #059669; color: #fff; }
+  .ehs-select.v-NOK { background: var(--huawei-red); border-color: var(--huawei-red); color: #fff; }
+  .ehs-select.v-NA { background: #6b7280; border-color: #6b7280; color: #fff; }
+  .ehs-select.full { width: 100%; padding: 10px 12px; font-size: 14px; font-weight: 600; color: var(--text); }
+  .ehs-select.full.has { border-color: var(--orange); background: #fff8ed; }
   .ehs-row.stack { flex-direction: column; align-items: stretch; gap: 5px; }
 
   .leaflet-container { font-family: 'Barlow', sans-serif; }
@@ -1228,11 +1234,11 @@ addEcart();
 const EHS_KEY = 'sitevisit_ehs';
 const EHS_SECTIONS = [
   { title: 'Identification', icon: '🪪', items: [
-    ['cluster','CLUSTER','text'], ['fme','FME','text'], ['fonctions','Fonctions','text'],
+    ['cluster','CLUSTER','text'], ['fme','FME','text'], ['fonctions','Fonctions','select',['Team Leader','Rigger','Fouilleur']],
     ['basement','Basement','text'], ['obd','OBD','ok'] ] },
   { title: 'Véhicule', icon: '🚙', items: [
-    ['vehicule','Véhicule','text'], ['immat','Immatriculation','text'],
-    ['type_vehicule','Type véhicule','text'], ['pneus','État des pneus','ok'] ] },
+    ['type_vehicule','Type véhicule','text'], ['immat','Immatriculation','text'],
+    ['pneus','État des pneus','ok'] ] },
   { title: 'Habilitations', icon: '📜', items: [
     ['hab_elec','Habilitation électrique','ok'], ['hab_hauteur','Habilitation en hauteur','ok'] ] },
   { title: 'EPI', icon: '⛑️', items: [
@@ -1258,18 +1264,24 @@ function ehsLoad() {
 
 function renderEHS() {
   const form = document.getElementById('ehs-form');
-  const esc = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const esc = t => String(t).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   let h = '';
   EHS_SECTIONS.forEach(sec => {
     h += `<div class="card"><div class="card-header"><div class="card-header-icon">${sec.icon}</div><div class="card-title">${sec.title}</div></div>`;
-    sec.items.forEach(([id, label, type]) => {
+    sec.items.forEach(([id, label, type, opts]) => {
       const v = ehsData[id] || '';
       if (type === 'ok') {
         h += `<div class="ehs-row ${v === 'NOK' ? 'is-nok' : ''}" id="row-${id}"><div class="ehs-label">${label}</div>
-          <div class="ehs-toggle">
-            <button class="ehs-btn ok ${v === 'OK' ? 'on' : ''}" onclick="setEHS('${id}','OK')">OK</button>
-            <button class="ehs-btn nok ${v === 'NOK' ? 'on' : ''}" onclick="setEHS('${id}','NOK')">NOK</button>
-          </div></div>`;
+          <select class="ehs-select ${v ? 'v-' + v : ''}" onchange="setOK('${id}', this)">
+            <option value="">—</option>
+            ${['OK','NOK','NA'].map(o => `<option value="${o}" ${v === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select></div>`;
+      } else if (type === 'select') {
+        h += `<div class="ehs-row stack"><div class="ehs-label">${label}</div>
+          <select class="ehs-select full ${v ? 'has' : ''}" onchange="this.classList.toggle('has', !!this.value); setEHS('${id}', this.value, true)">
+            <option value="">— Choisir —</option>
+            ${opts.map(o => `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}
+          </select></div>`;
       } else {
         h += `<div class="ehs-row stack"><div class="ehs-label">${label}</div>
           <input type="text" class="ehs-input" value="${esc(v)}" oninput="setEHS('${id}', this.value, true)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;background:#fafafa;"></div>`;
@@ -1283,26 +1295,26 @@ function renderEHS() {
   updateEHSSummary();
 }
 
-function setEHS(id, val, isText) {
-  if (!isText && ehsData[id] === val) val = '';   // re-tap pour désélectionner
+function setEHS(id, val) {
   ehsData[id] = val;
   ehsSave();
-  if (!isText) {
-    const row = document.getElementById('row-' + id);
-    row.classList.toggle('is-nok', val === 'NOK');
-    row.querySelector('.ok').classList.toggle('on', val === 'OK');
-    row.querySelector('.nok').classList.toggle('on', val === 'NOK');
-    updateEHSSummary();
-  }
+}
+
+function setOK(id, el) {
+  ehsData[id] = el.value;
+  ehsSave();
+  el.className = 'ehs-select' + (el.value ? ' v-' + el.value : '');
+  document.getElementById('row-' + id).classList.toggle('is-nok', el.value === 'NOK');
+  updateEHSSummary();
 }
 
 function updateEHSSummary() {
-  const okItems = EHS_SECTIONS.flatMap(s => s.items).filter(i => i[2] === 'ok');
-  const ok = okItems.filter(i => ehsData[i[0]] === 'OK').length;
-  const nok = okItems.filter(i => ehsData[i[0]] === 'NOK').length;
-  const todo = okItems.length - ok - nok;
+  const okItems = EHS_SECTIONS.flatMap(x => x.items).filter(i => i[2] === 'ok');
+  const c = v => okItems.filter(i => ehsData[i[0]] === v).length;
+  const ok = c('OK'), nok = c('NOK'), na = c('NA');
+  const todo = okItems.length - ok - nok - na;
   document.getElementById('ehs-summary').innerHTML =
-    `<span>Contrôle</span><span class="pill ok">${ok} OK</span><span class="pill nok">${nok} NOK</span><span class="pill todo">${todo} restants</span>`;
+    `<span class="pill ok">${ok} OK</span><span class="pill nok">${nok} NOK</span><span class="pill todo">${na} NA</span><span class="pill todo">${todo} restants</span>`;
 }
 
 function resetEHS() {
