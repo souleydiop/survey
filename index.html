@@ -10,6 +10,7 @@
 <link rel="manifest" href="https://souleydiop.github.io/survey/manifest.json">
 <link rel="apple-touch-icon" href="https://souleydiop.github.io/survey/icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;900&family=Barlow+Condensed:wght@700;900&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -303,7 +304,13 @@
   <div class="section-title">EHS</div>
   <div class="ehs-summary" id="ehs-summary"></div>
   <div id="ehs-form"></div>
-  <button class="btn btn-ghost btn-full" onclick="resetEHS()">🗑️ Réinitialiser la fiche EHS</button>
+  <button class="btn btn-primary btn-full" onclick="saveAudit()">✅ Enregistrer l'audit</button>
+  <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="resetEHS()">🗑️ Vider la fiche en cours</button>
+
+  <div class="section-title" style="margin-top:22px;">Audits enregistrés</div>
+  <div class="card" id="ehs-audits" style="padding:0;"></div>
+  <button class="btn btn-orange btn-full" onclick="exportEHS()">⬇ Exporter Excel</button>
+  <button class="btn btn-ghost btn-full" style="margin-top:8px;" onclick="clearAudits()">🗑️ Vider le tableau</button>
 </div>
 
 <!-- Bottom Tab Bar -->
@@ -1306,8 +1313,103 @@ function resetEHS() {
   toast('Fiche EHS réinitialisée');
 }
 
+// ---- Audits enregistrés + export Excel ----
+const EHS_AUDITS_KEY = 'sitevisit_ehs_audits';
+let ehsAudits = [];
+
+function auditsLoad() {
+  try { ehsAudits = JSON.parse(localStorage.getItem(EHS_AUDITS_KEY) || '[]') || []; } catch (e) { ehsAudits = []; }
+}
+function auditsSave() { try { localStorage.setItem(EHS_AUDITS_KEY, JSON.stringify(ehsAudits)); } catch (e) {} }
+
+function ehsDraftHasData() { return Object.values(ehsData).some(v => String(v).trim() !== ''); }
+
+function countNOK(d) {
+  return EHS_SECTIONS.flatMap(x => x.items).filter(i => i[2] === 'ok' && d[i[0]] === 'NOK').length;
+}
+
+function saveAudit(silent) {
+  if (!ehsDraftHasData()) { toast('Fiche vide'); return false; }
+  if (!String(ehsData.cluster || '').trim()) { toast('Renseigne le CLUSTER'); return false; }
+  ehsAudits.push({ id: 'a' + Date.now(), date: new Date().toISOString().split('T')[0], data: { ...ehsData } });
+  auditsSave();
+  ehsData = {};
+  ehsSave();
+  renderEHS();
+  renderAudits();
+  if (!silent) { toast('Audit enregistré — fiche prête pour un autre cluster'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  return true;
+}
+
+function renderAudits() {
+  const box = document.getElementById('ehs-audits');
+  if (!ehsAudits.length) {
+    box.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px;">Aucun audit enregistré</div>';
+    return;
+  }
+  const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  box.innerHTML = ehsAudits.map((a, i) => {
+    const nok = countNOK(a.data);
+    return `<div class="site-item" style="cursor:default;">
+      <div class="td-num" style="width:22px;">${i + 1}</div>
+      <div class="site-info"><div class="site-name">${esc(a.data.cluster || '—')}</div>
+        <div class="site-coords">${esc(a.data.fme || '—')} · ${a.date}</div></div>
+      <span class="pill ${nok ? 'nok' : 'ok'}" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;color:#fff;background:${nok ? 'var(--huawei-red)' : '#059669'};">${nok} NOK</span>
+      <button class="btn btn-ghost btn-sm" onclick="editAudit('${a.id}')">✏️</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteAudit('${a.id}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function editAudit(id) {
+  const a = ehsAudits.find(x => x.id === id);
+  if (!a) return;
+  if (ehsDraftHasData() && !confirm('Remplacer la fiche en cours par cet audit ?')) return;
+  ehsData = { ...a.data };
+  ehsAudits = ehsAudits.filter(x => x.id !== id);
+  ehsSave(); auditsSave();
+  renderEHS(); renderAudits();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  toast('Audit rechargé — modifie puis enregistre');
+}
+
+function deleteAudit(id) {
+  if (!confirm('Supprimer cet audit ?')) return;
+  ehsAudits = ehsAudits.filter(x => x.id !== id);
+  auditsSave(); renderAudits();
+}
+
+function clearAudits() {
+  if (!ehsAudits.length) return;
+  if (!confirm('Vider tout le tableau des audits ?')) return;
+  ehsAudits = [];
+  auditsSave(); renderAudits();
+  toast('Tableau vidé');
+}
+
+function exportEHS() {
+  if (ehsDraftHasData() && String(ehsData.cluster || '').trim() &&
+      confirm("La fiche en cours n'est pas enregistrée. L'ajouter au tableau avant l'export ?")) {
+    saveAudit(true);
+  }
+  if (!ehsAudits.length) { toast('Aucun audit à exporter'); return; }
+  if (typeof XLSX === 'undefined') { toast('Librairie Excel non chargée (connexion ?)'); return; }
+  const items = EHS_SECTIONS.flatMap(x => x.items);
+  const headers = ['Date', ...items.map(i => i[1]), 'Commentaires'];
+  const rows = ehsAudits.map(a => [a.date, ...items.map(i => a.data[i[0]] || ''), a.data.commentaires || '']);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws['!cols'] = headers.map((h, c) => ({ wch: Math.min(40, Math.max(h.length + 2, ...rows.map(r => String(r[c]).length + 2))) }));
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'EHS');
+  XLSX.writeFile(wb, `EHS_audits_${new Date().toISOString().split('T')[0]}.xlsx`);
+  toast(`${ehsAudits.length} audit(s) exporté(s)`);
+}
+
 ehsLoad();
+auditsLoad();
 renderEHS();
+renderAudits();
 
 // Restore saved KML on startup
 setTimeout(() => {
