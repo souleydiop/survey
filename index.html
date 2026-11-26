@@ -129,6 +129,23 @@
   .add-ecart-btn { border: 2px dashed var(--orange); color: var(--orange); background: #fff8ed; border-radius: var(--radius); padding: 14px; width: 100%; text-align: center; font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.15s; margin-bottom: 14px; }
   .add-ecart-btn:active { background: #fff0d0; }
 
+
+  /* EHS */
+  .ehs-summary { position: sticky; top: 0; z-index: 50; display: flex; gap: 8px; align-items: center; background: var(--huawei-dark); color: #fff; border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; font-size: 12px; font-weight: 600; box-shadow: var(--shadow); }
+  .ehs-summary .pill { padding: 3px 10px; border-radius: 20px; font-weight: 700; font-size: 11px; }
+  .ehs-summary .pill.ok { background: #059669; }
+  .ehs-summary .pill.nok { background: var(--huawei-red); }
+  .ehs-summary .pill.todo { background: rgba(255,255,255,0.18); }
+  .ehs-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .ehs-row:last-child { border-bottom: none; }
+  .ehs-label { font-size: 13px; font-weight: 600; flex: 1; line-height: 1.25; }
+  .ehs-toggle { display: flex; gap: 6px; flex-shrink: 0; }
+  .ehs-btn { min-width: 52px; padding: 8px 10px; border-radius: 8px; border: 1.5px solid var(--border); background: #fafafa; color: var(--text-muted); font-family: 'Barlow', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .ehs-btn.ok.on { background: #059669; border-color: #059669; color: #fff; }
+  .ehs-btn.nok.on { background: var(--huawei-red); border-color: var(--huawei-red); color: #fff; }
+  .ehs-row.is-nok .ehs-label { color: var(--huawei-red); }
+  .ehs-row.stack { flex-direction: column; align-items: stretch; gap: 5px; }
+
   .leaflet-container { font-family: 'Barlow', sans-serif; }
 </style>
 </head>
@@ -281,6 +298,14 @@
 
 </div>
 
+<!-- EHS SCREEN -->
+<div id="screen-ehs" class="screen">
+  <div class="section-title">EHS</div>
+  <div class="ehs-summary" id="ehs-summary"></div>
+  <div id="ehs-form"></div>
+  <button class="btn btn-ghost btn-full" onclick="resetEHS()">🗑️ Réinitialiser la fiche EHS</button>
+</div>
+
 <!-- Bottom Tab Bar -->
 <div class="bottom-tabs">
   <button class="bottom-tab active" id="tab-rapport" onclick="showScreen('rapport')">
@@ -294,6 +319,10 @@
   <button class="bottom-tab" id="tab-localisation" onclick="showScreen('localisation')">
     <span class="tab-icon">📡</span>
     Localisation
+  </button>
+  <button class="bottom-tab" id="tab-ehs" onclick="showScreen('ehs')">
+    <span class="tab-icon">🦺</span>
+    EHS
   </button>
 </div>
 
@@ -1187,6 +1216,99 @@ function initLocMap() {
 document.getElementById('site-date').value = new Date().toISOString().split('T')[0];
 // Add first ecart by default
 addEcart();
+
+// ============ EHS ============
+const EHS_KEY = 'sitevisit_ehs';
+const EHS_SECTIONS = [
+  { title: 'Identification', icon: '🪪', items: [
+    ['cluster','CLUSTER','text'], ['fme','FME','text'], ['fonctions','Fonctions','text'],
+    ['basement','Basement','text'], ['obd','OBD','ok'] ] },
+  { title: 'Véhicule', icon: '🚙', items: [
+    ['vehicule','Véhicule','text'], ['immat','Immatriculation','text'],
+    ['type_vehicule','Type véhicule','text'], ['pneus','État des pneus','ok'] ] },
+  { title: 'Habilitations', icon: '📜', items: [
+    ['hab_elec','Habilitation électrique','ok'], ['hab_hauteur','Habilitation en hauteur','ok'] ] },
+  { title: 'EPI', icon: '⛑️', items: [
+    ['casque','Casque','ok'], ['masque','Masque','ok'], ['lunettes','Lunettes de protection','ok'],
+    ['chaussures','Chaussures de sécurité','ok'], ['longe','Longe de maintien','ok'],
+    ['double_longe','Double longe','ok'], ['harnais','Harnais','ok'], ['gants','Gants','ok'], ['gilet','Gilet','ok'] ] },
+  { title: 'Matériel & outillage', icon: '🧰', items: [
+    ['multimetre','Multimètre','ok'], ['soudeuse','Soudeuse (modèle)','text'], ['reflecto','Reflecto (modèle)','text'],
+    ['souffleur','Souffleur','ok'], ['etiqueteuse','Étiqueteuse','ok'], ['caisse','Caisse à outils complète','ok'],
+    ['corde','Corde 200 m','ok'], ['pince','Pince à sertir','ok'], ['poulie','Poulie','ok'],
+    ['laptop','Laptop avec tous les softs (BO RAN, Trans, IP…)','ok'] ] },
+  { title: 'Compétences', icon: '🎓', items: [
+    ['comp_ran','Compétence RAN','ok'], ['comp_fh','Compétence FH','ok'],
+    ['comp_soudure','Compétence soudure fibre backbone','ok'] ] },
+];
+let ehsData = {};
+
+function ehsSave() { try { localStorage.setItem(EHS_KEY, JSON.stringify(ehsData)); } catch (e) {} }
+
+function ehsLoad() {
+  try { ehsData = JSON.parse(localStorage.getItem(EHS_KEY) || '{}') || {}; } catch (e) { ehsData = {}; }
+}
+
+function renderEHS() {
+  const form = document.getElementById('ehs-form');
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  let h = '';
+  EHS_SECTIONS.forEach(sec => {
+    h += `<div class="card"><div class="card-header"><div class="card-header-icon">${sec.icon}</div><div class="card-title">${sec.title}</div></div>`;
+    sec.items.forEach(([id, label, type]) => {
+      const v = ehsData[id] || '';
+      if (type === 'ok') {
+        h += `<div class="ehs-row ${v === 'NOK' ? 'is-nok' : ''}" id="row-${id}"><div class="ehs-label">${label}</div>
+          <div class="ehs-toggle">
+            <button class="ehs-btn ok ${v === 'OK' ? 'on' : ''}" onclick="setEHS('${id}','OK')">OK</button>
+            <button class="ehs-btn nok ${v === 'NOK' ? 'on' : ''}" onclick="setEHS('${id}','NOK')">NOK</button>
+          </div></div>`;
+      } else {
+        h += `<div class="ehs-row stack"><div class="ehs-label">${label}</div>
+          <input type="text" class="ehs-input" value="${esc(v)}" oninput="setEHS('${id}', this.value, true)" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Barlow',sans-serif;font-size:14px;background:#fafafa;"></div>`;
+      }
+    });
+    h += `</div>`;
+  });
+  h += `<div class="card"><div class="card-header"><div class="card-header-icon">💬</div><div class="card-title">Commentaires</div></div>
+    <div class="field" style="margin-bottom:0"><textarea placeholder="Commentaires..." oninput="setEHS('commentaires', this.value, true)">${esc(ehsData.commentaires || '')}</textarea></div></div>`;
+  form.innerHTML = h;
+  updateEHSSummary();
+}
+
+function setEHS(id, val, isText) {
+  if (!isText && ehsData[id] === val) val = '';   // re-tap pour désélectionner
+  ehsData[id] = val;
+  ehsSave();
+  if (!isText) {
+    const row = document.getElementById('row-' + id);
+    row.classList.toggle('is-nok', val === 'NOK');
+    row.querySelector('.ok').classList.toggle('on', val === 'OK');
+    row.querySelector('.nok').classList.toggle('on', val === 'NOK');
+    updateEHSSummary();
+  }
+}
+
+function updateEHSSummary() {
+  const okItems = EHS_SECTIONS.flatMap(s => s.items).filter(i => i[2] === 'ok');
+  const ok = okItems.filter(i => ehsData[i[0]] === 'OK').length;
+  const nok = okItems.filter(i => ehsData[i[0]] === 'NOK').length;
+  const todo = okItems.length - ok - nok;
+  document.getElementById('ehs-summary').innerHTML =
+    `<span>Contrôle</span><span class="pill ok">${ok} OK</span><span class="pill nok">${nok} NOK</span><span class="pill todo">${todo} restants</span>`;
+}
+
+function resetEHS() {
+  if (!confirm('Réinitialiser toute la fiche EHS ?')) return;
+  ehsData = {};
+  ehsSave();
+  renderEHS();
+  toast('Fiche EHS réinitialisée');
+}
+
+ehsLoad();
+renderEHS();
+
 // Restore saved KML on startup
 setTimeout(() => {
   const saved = localStorage.getItem('sitevisit_kml');
